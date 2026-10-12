@@ -77,10 +77,10 @@ export class ProductService {
     }
 
     // Validate Giá & Tồn kho
-    if (typeof input.price !== 'number' || input.price < 0) {
+    if (!Number.isFinite(input.price) || input.price < 0) {
       return { success: false, error: 'Giá bán phải là số hợp lệ và không được âm.' };
     }
-    if (typeof input.stock !== 'number' || input.stock < 0) {
+    if (!Number.isInteger(input.stock) || input.stock < 0) {
       return { success: false, error: 'Số lượng tồn kho không được âm.' };
     }
 

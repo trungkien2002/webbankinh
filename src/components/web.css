@@ -1,0 +1,57 @@
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+* {
+  box-sizing: border-box;
+}
+body,
+input,
+button,
+[dir="auto"] {
+  font-family: "ElanSans", Arial, sans-serif !important;
+}
+[role="button"] {
+  transition:
+    transform 0.22s ease,
+    background-color 0.22s ease,
+    box-shadow 0.22s ease;
+  cursor: pointer;
+}
+[role="button"]:hover {
+  box-shadow: 0 5px 14px #284e4312;
+}
+[role="button"]:active {
+  transform: scale(0.98);
+}
+[role="button"]:focus-visible,
+input:focus-visible {
+  outline: 2px solid #517464;
+  outline-offset: 3px;
+}
+[data-testid="product-card"] {
+  transition:
+    transform 0.28s ease,
+    box-shadow 0.28s ease;
+}
+[data-testid="product-card"]:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px #284e4314;
+}
+[data-testid="product-card"] img {
+  transition: transform 0.45s ease;
+}
+[data-testid="product-card"]:hover img {
+  transform: scale(1.05);
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+[data-testid="product-card"] [style*="background-image"] { transition: transform .45s ease; } [data-testid="product-card"]:hover [style*="background-image"] { transform: scale(1.05); }
