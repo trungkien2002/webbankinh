@@ -40,6 +40,9 @@ export class InvoiceService {
     if (!input.items || input.items.length === 0) {
       return { success: false, error: 'Không thể treo hóa đơn khi giỏ hàng chưa có sản phẩm.' };
     }
+    if (input.items.some(item => !Number.isInteger(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitPrice) || item.unitPrice < 0)) {
+      return { success: false, error: 'Số lượng và giá sản phẩm không hợp lệ.' };
+    }
 
     const subtotal = input.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
     const discountAmount = input.voucherDiscountSnapshot || 0;
@@ -99,6 +102,13 @@ export class InvoiceService {
     if (target.paymentStatus === 'paid') {
       return { success: false, error: 'Hóa đơn này đã được thanh toán trước đó.' };
     }
+    if (target.paymentStatus === 'cancelled') return { success: false, error: 'Đơn đã hủy không thể thanh toán.' };
+    const quantities = new Map<string, number>();
+    for (const item of target.items) quantities.set(item.productId, (quantities.get(item.productId) || 0) + item.quantity);
+    for (const [id, quantity] of quantities) {
+      const product = db.products.find(p => p.id === id && !p.isDeleted);
+      if (!product || product.stock < quantity) return { success: false, error: 'Sản phẩm không còn đủ tồn kho để thanh toán.' };
+    }
 
     const updated: Invoice = {
       ...target,
@@ -111,6 +121,7 @@ export class InvoiceService {
 
     const newInvoices = [...invoices];
     newInvoices[idx] = updated;
+    db.setProducts(db.products.map(product => ({ ...product, stock: product.stock - (quantities.get(product.id) || 0) })));
     db.setInvoices(newInvoices);
 
     return { success: true, data: updated };
