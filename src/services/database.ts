@@ -2,6 +2,7 @@
 // Local Database & State Persistence cho hệ thống quản lý bán kính thời trang
 
 import { User, Employee, Category, Product, Voucher, Customer, Invoice } from '../contracts/domain';
+import sharedDatabase from '../../data/local-database.json';
 
 interface DatabaseSchema {
   users: User[];
@@ -215,7 +216,7 @@ class Database {
       }
     }
     // Deep clone initialDatabase
-    return JSON.parse(JSON.stringify(initialDatabase));
+    return JSON.parse(JSON.stringify(sharedDatabase));
   }
 
   private save() {
