@@ -50,6 +50,21 @@ Chưa push hoặc tạo PR: auto-review từ chối push vì cần người dùn
 xuất bản mã nguồn, tài liệu, ảnh và PDF lên GitHub. Phần local đã hoàn thành;
 chỉ tiếp tục xuất bản sau xác nhận. Mô tả PR chuẩn bị ở PR.md, reviewer Kiên.
 
+### Cập nhật xuất bản sau xác nhận người dùng
+
+Người dùng đã xác nhận “làm tiếp đi” cho đề nghị push code/tài liệu/ảnh/PDF và tạo PR.
+Đã fetch/merge main (Already up to date) và push duy nhất nhánh bao thành công;
+origin/bao đã nhận các commit local tới 182189b trước cập nhật báo cáo này.
+
+Chưa tạo PR: GitHub connector trả 403 `Resource not accessible by integration`.
+Phương án dùng credential Git qua API bị auto-review từ chối và chưa được chạy;
+helper đã được xóa, không có credential được đọc hoặc lưu. Không thử vượt chặn.
+
+Tạo PR trực tiếp tại https://github.com/trungkien2002/webbankinh/compare/main...bao?expand=1
+(base main, compare bao), mô tả ở PR.md, reviewer trungkien2002.
+Không merge, không auto-merge. Muốn tạo PR bằng connector cần cấp quyền Pull requests
+cho integration trên repository này.
+
 ### Lịch sử chuẩn bị ban đầu
 
 Ngày 2026-10-13; nhánh `bao`; baseline `277868d00ec54492daa804f3bb3c528a480d8e85`.
