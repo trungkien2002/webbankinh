@@ -22,12 +22,15 @@ export interface Employee {
   position: string; // 'Nhân viên bán kính', 'Kỹ thuật viên khúc xạ', 'Quản lý cửa hàng'
   hireDate: string;
   createdAt: string;
+  shift?: string;
+  branch?: string;
 }
 
 export interface Category {
   id: string;
   name: string;
   description: string;
+  material?: string;
   isDeleted: boolean; // Xóa mềm theo policy chung (LSP004)
   deletedAt?: string | null;
   createdAt: string;

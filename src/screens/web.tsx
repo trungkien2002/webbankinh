@@ -4,7 +4,9 @@ import { catalogImage } from "../components/catalogAssets";
 import { prepareDemoCatalog } from "../services/catalog";
 import { EmployeeForm } from "../components/employeeForm";
 import { VoucherForm } from "../components/voucherForm";
-import React, { useState, useEffect } from "react";
+import { BaoAction, BaoDialog, InvoiceContent } from "../components/bao-dialog";
+import { createDraft, saveDraftItems, setDraftCustomer, completeDraft, customerList } from "../services/bao-service";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Image,
   Pressable,
@@ -51,6 +53,16 @@ const titles = [
   "Khách hàng",
   "Nhân viên",
 ];
+function restoredDraft() {
+  const session = getDemoSession();
+  const employee = db.employees.find(e => e.userId === session?.id);
+  return db.invoices.filter(i => i.employeeId === employee?.id && i.paymentStatus === 'draft').at(-1);
+}
+function ProductThumbnail({ product, index, height = 50, width = 100 }: { product: Product; index: number; height?: number; width?: number | `${number}%` }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [product.id, product.imageUrl]);
+  return <Image accessibilityLabel={`Ảnh ${product.name}`} source={{ uri: failed ? glassesArt('#68432f', product.productType === 'Kính râm', false) : art(product, index) }} onError={() => setFailed(true)} style={{ height, width }} resizeMode="contain" />;
+}
 export function WebApp() {
   const { width } = useWindowDimensions();
   const small = width < 850;
@@ -65,7 +77,10 @@ export function WebApp() {
   const [productPage, setProductPage] = useState(1);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
-  const [cart, setCart] = useState<Record<string, number>>({});
+  const [cart, setCart] = useState<Record<string, number>>(() => Object.fromEntries((restoredDraft()?.items || []).map(i => [i.productId, i.quantity])));
+  const [draftId, setDraftId] = useState(restoredDraft()?.id || '');
+  const newDraftLock = useRef(false);
+  const [baoDialog, setBaoDialog] = useState<{ action: BaoAction; id?: string } | null>(null);
   const [detail, setDetail] = useState<Product | null>(null);
   const [modal, setModal] = useState("");
   const [notice, setNotice] = useState("");
@@ -73,17 +88,30 @@ export function WebApp() {
   const [email, setEmail] = useState("admin@example.com");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [voucher, setVoucher] = useState("");
-  const [customer, setCustomer] = useState("");
+  const [voucher, setVoucher] = useState(restoredDraft()?.voucherCode || '');
+  const [customer, setCustomer] = useState(restoredDraft()?.customerId || '');
   const [payment, setPayment] = useState("cash");
   const [status, setStatus] = useState("all");
+  const [stockFilter, setStockFilter] = useState('all');
+  const [sort, setSort] = useState('name');
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const products = productService.searchProducts({
     query,
     categoryId: category || undefined,
-  });
+  }).filter(p => stockFilter === 'all' || (stockFilter === 'available' ? p.stock > 0 : p.stock === 0))
+    .sort((a, b) => sort === 'price-asc' ? a.price - b.price || a.id.localeCompare(b.id) : sort === 'price-desc' ? b.price - a.price || a.id.localeCompare(b.id) : a.name.localeCompare(b.name, 'vi') || a.id.localeCompare(b.id));
   useEffect(() => setProductPage(1), [query, category, section]);
+  useEffect(() => setProductPage(1), [stockFilter, sort]);
+  useEffect(() => {
+    if (!user) return;
+    const timer = setInterval(() => {
+      const session = getDemoSession();
+      if (!session || session.id !== user.id) { setUser(null); setPage('login'); setCart({}); setDraftId(''); setModal(''); setBaoDialog(null); }
+      else if (session.role !== user.role || session.email !== user.email) setUser(session);
+    }, 1500);
+    return () => clearInterval(timer);
+  }, [user]);
   const totalPages = Math.max(1, Math.ceil(products.length / 12));
   const currentPage = Math.min(productPage, totalPages);
   const visibleProducts = products.slice(
@@ -113,12 +141,34 @@ export function WebApp() {
     ? voucherService.applyVoucher({ voucherCode: voucher, subtotal })
     : null;
   const discountAmount = discount?.success ? discount.discountAmount || 0 : 0;
+  const activeDraft = db.invoices.find(i => i.id === draftId && ['draft', 'pending'].includes(i.paymentStatus));
+  const changeCart = (next: Record<string, number>) => {
+    try {
+      if (page === 'admin') {
+        const draft = activeDraft || createDraft(user!.id);
+        saveDraftItems(user!.id, draft.id, next);
+        if (!activeDraft && customer) setDraftCustomer(user!.id, draft.id, customer);
+        setDraftId(draft.id);
+      }
+      setCart(next); setNotice(''); refresh(v => v + 1);
+    } catch (e) { setNotice((e as Error).message); }
+  };
+  const newDraft = () => {
+    if (newDraftLock.current) return;
+    newDraftLock.current = true;
+    try {
+      const draft = createDraft(user!.id);
+      setDraftId(draft.id); setCart({}); setCustomer(''); setVoucher('');
+      setNotice(`Đã tạo ${draft.invoiceCode}. Đơn nháp được lưu cục bộ.`); refresh(v => v + 1);
+    } catch (e) { setNotice((e as Error).message); }
+    finally { setTimeout(() => { newDraftLock.current = false; }, 400); }
+  };
   const add = (product: Product) => {
     if ((cart[product.id] || 0) >= product.stock) {
       setNotice("Số lượng đã đạt tồn kho.");
       return;
     }
-    setCart({ ...cart, [product.id]: (cart[product.id] || 0) + 1 });
+    changeCart({ ...cart, [product.id]: (cart[product.id] || 0) + 1 });
   };
   const field = (key: string, label: string, secure = false) => (
     <Field
@@ -129,7 +179,7 @@ export function WebApp() {
     />
   );
   const open = (name: string) => {
-    setForm({ categoryId: db.categories.find((c) => !c.isDeleted)?.id || "" });
+    setForm({ categoryId: db.categories.find((c) => !c.isDeleted)?.id || "", productType: 'Gọng kính' });
     setNotice("");
     setModal(name);
   };
@@ -137,9 +187,21 @@ export function WebApp() {
     setSection(name);
     setQuery("");
     setCategory("");
+    setStockFilter('all'); setSort('name');
     setNotice("");
   };
   const submitOrder = (paid: boolean) => {
+    if (page === 'admin') {
+      try {
+        if (!activeDraft) throw new Error('Hãy tạo đơn nháp trước.');
+        saveDraftItems(user!.id, activeDraft.id, cart, voucher);
+        completeDraft(user!.id, activeDraft.id, paid, payment as 'cash' | 'transfer');
+        setCart({}); setDraftId(''); setCustomer(''); setVoucher(''); setModal('');
+        setNotice(`${paid ? 'Đã thanh toán' : 'Đã lưu đơn chờ'} ${activeDraft.invoiceCode}.`);
+        refresh(v => v + 1);
+      } catch (e) { setNotice((e as Error).message); }
+      return;
+    }
     if (voucher.trim() && !discount?.success) {
       setNotice(discount?.error || "Voucher không hợp lệ.");
       return;
@@ -201,8 +263,7 @@ export function WebApp() {
         sku: form.sku || "",
         name: form.name || "",
         categoryId: form.categoryId || "",
-        productType: db.categories.find((c) => c.id === form.categoryId)
-          ?.name as Product["productType"],
+        productType: (form.productType || 'Gọng kính') as Product['productType'],
         price: Number(form.price),
         stock: Number(form.stock),
         imageUrl: form.imageUrl,
@@ -251,7 +312,7 @@ export function WebApp() {
               const next = { ...cart };
               if (item.quantity === 1) delete next[item.productId];
               else next[item.productId]--;
-              setCart(next);
+              changeCart(next);
             }}
           >
             −
@@ -302,12 +363,19 @@ export function WebApp() {
           <Choice
             label="Khách hàng"
             value={customer}
-            onChange={setCustomer}
+            onChange={value => {
+              try {
+                if (activeDraft && user) setDraftCustomer(user.id, activeDraft.id, value);
+                setCustomer(value); refresh(v => v + 1);
+              } catch (e) { setNotice((e as Error).message); }
+            }}
             options={[
               { label: "Khách vãng lai", value: "" },
               ...db.customers.map((c) => ({ label: c.fullName, value: c.id })),
             ]}
           />
+          <Button disabled={!activeDraft} onPress={() => setBaoDialog({ action: 'measurement', id: activeDraft?.id })}>Khách hàng / thông số đo mắt</Button>
+          {activeDraft?.prescription && <Text style={ui.muted}>Đã lưu thông số đo mắt ngày {activeDraft.prescription.measuredAt}.</Text>}
           <Choice
             label="Thanh toán"
             value={payment}
@@ -367,15 +435,7 @@ export function WebApp() {
                 setDetail(product);
               }}
             >
-              <Image
-                source={{ uri: art(product, i) }}
-                style={{
-                  height: 210,
-                  width: "100%",
-                  backgroundColor: ["#eee8dc", "#e1e6db", "#eadfcd"][i % 3],
-                }}
-                resizeMode="contain"
-              />
+              <ProductThumbnail product={product} index={i} height={210} width="100%" />
             </Pressable>
             <View style={{ padding: 20 }}>
               <Text
@@ -507,6 +567,7 @@ export function WebApp() {
               <Text style={[ui.muted, { marginVertical: 20 }]}>
                 Liên hệ quản trị viên nếu bạn cần cấp tài khoản.
               </Text>
+              <Button onPress={() => setBaoDialog({ action: 'password-reset' })}>Quên mật khẩu</Button>
               <Button
                 onPress={() => {
                   setPage("store");
@@ -863,8 +924,10 @@ export function WebApp() {
                   </View>
                   <View style={[ui.card, { flex: 1, minWidth: 300 }]}>
                     <Text style={[ui.h2, { marginBottom: 18 }]}>
-                      Đơn hàng hiện tại
+                      {activeDraft?.invoiceCode || 'Đơn hàng hiện tại'}
                     </Text>
+                    <Button onPress={newDraft}>Tạo hóa đơn mới</Button>
+                    <Text style={ui.muted}>Đơn nháp lưu cục bộ; mở lại từ danh sách hóa đơn.</Text>
                     {cartContent}
                   </View>
                 </View>
@@ -889,10 +952,11 @@ export function WebApp() {
                         "Phân loại kính",
                         "Khách hàng",
                         "Nhân viên",
+                        "Voucher",
                       ].includes(section) && (
                         <Button
                           primary
-                          onPress={() =>
+                          onPress={() => section === 'Voucher' ? setBaoDialog({ action: 'voucher-create' }) :
                             open(
                               section === "Sản phẩm"
                                 ? "Thêm sản phẩm"
@@ -905,7 +969,7 @@ export function WebApp() {
                           }
                         >
                           +{" "}
-                          {section === "Sản phẩm"
+                          {section === 'Voucher' ? 'Thêm voucher' : section === "Sản phẩm"
                             ? "Thêm sản phẩm"
                             : section === "Khách hàng"
                               ? "Thêm khách hàng"
@@ -915,25 +979,25 @@ export function WebApp() {
                         </Button>
                       )}
                   </View>
-                  {section === "Sản phẩm" ? (
+                  {section === "Sản phẩm" ? (<>
+                    <Choice label="Tồn kho" value={stockFilter} onChange={setStockFilter} options={[{ label: 'Tất cả', value: 'all' }, { label: 'Còn hàng', value: 'available' }, { label: 'Hết hàng', value: 'empty' }]} />
+                    <Choice label="Sắp xếp" value={sort} onChange={setSort} options={[{ label: 'Tên', value: 'name' }, { label: 'Giá tăng', value: 'price-asc' }, { label: 'Giá giảm', value: 'price-desc' }]} />
                     <Table
+                      key={`${query}-${stockFilter}-${sort}`}
                       headings={["Sản phẩm", "Giá bán", "Tồn kho", "Phân loại"]}
                       rows={products.map((v, i) => [
                         <Pressable onPress={() => setDetail(v)}>
-                          <Image
-                            source={{ uri: art(v, i) }}
-                            style={{ width: 100, height: 50 }}
-                          />
+                          <ProductThumbnail product={v} index={i} />
                           <Text style={ui.label}>{v.name}</Text>
                           <Text style={ui.muted}>{v.sku}</Text>
                         </Pressable>,
                         money(v.price),
-                        String(v.stock),
-                        v.productType,
+                        `${v.stock} · ${v.stock > 0 ? 'Còn hàng' : 'Hết hàng'}`,
+                        db.categories.find(c => c.id === v.categoryId)?.name || v.productType,
                       ])}
-                    />
+                    /></>
                   ) : section === "Phân loại kính" ? (
-                    <Table
+                    <Table key={`customers-${query}`}
                       headings={["Phân loại", "Mô tả", "Thao tác"]}
                       rows={db.categories
                         .filter(
@@ -944,7 +1008,10 @@ export function WebApp() {
                         .map((c) => [
                           c.name,
                           c.description,
-                          user?.role === "admin" ? (
+                          <View style={ui.row}>
+                            <Button onPress={() => setBaoDialog({ action: 'category-detail', id: c.id })}>Chi tiết</Button>
+                            {user?.role === 'admin' && <Button onPress={() => setBaoDialog({ action: 'category-edit', id: c.id })}>Sửa</Button>}
+                          {user?.role === "admin" ? (
                             <Button
                               onPress={() => {
                                 setForm({ id: c.id, name: c.name });
@@ -955,7 +1022,7 @@ export function WebApp() {
                             </Button>
                           ) : (
                             "—"
-                          ),
+                          )}</View>,
                         ])}
                     />
                   ) : section === "Hóa đơn" ? (
@@ -979,6 +1046,8 @@ export function WebApp() {
                           { label: "Tất cả", value: "all" },
                           { label: "Chờ thanh toán", value: "pending" },
                           { label: "Đã thanh toán", value: "paid" },
+                          { label: 'Đơn nháp', value: 'draft' },
+                          { label: 'Đã hủy', value: 'cancelled' },
                         ]}
                       />
                       <Table
@@ -994,7 +1063,7 @@ export function WebApp() {
                             searchQuery: query,
                             fromDate: from || undefined,
                             toDate: to || undefined,
-                            paymentStatus: status as "all" | "paid" | "pending",
+                            paymentStatus: status as "all" | "paid" | "pending" | 'draft' | 'cancelled',
                           })
                           .map((v) => [
                             v.invoiceCode,
@@ -1002,16 +1071,19 @@ export function WebApp() {
                             money(v.totalAmount),
                             v.paymentStatus === "paid"
                               ? "Đã thanh toán"
-                              : "Chờ thanh toán",
+                              : v.paymentStatus === 'draft' ? 'Đơn nháp' : v.paymentStatus === 'cancelled' ? 'Đã hủy' : "Chờ thanh toán",
                             <View style={ui.row}>
                               <Button
                                 onPress={() => {
-                                  setForm({ id: v.id });
-                                  setModal("Chi tiết hóa đơn");
+                                  setBaoDialog({ action: 'invoice-detail', id: v.id });
                                 }}
                               >
                                 Chi tiết
                               </Button>
+                              {['draft', 'pending'].includes(v.paymentStatus) && <Button onPress={() => {
+                                setDraftId(v.id); setCart(Object.fromEntries(v.items.map(i => [i.productId, i.quantity])));
+                                setCustomer(v.customerId || ''); setVoucher(v.voucherCode || ''); setSection('Bán hàng tại quầy');
+                              }}>Mở tại quầy</Button>}
                               {v.paymentStatus === "pending" && (
                                 <Button
                                   onPress={() => {
@@ -1083,14 +1155,14 @@ export function WebApp() {
                         "Khách hàng",
                         "Số điện thoại",
                         "Email",
+                        "Số lần mua / lần gần nhất",
                         "Hồ sơ",
                       ]}
-                      rows={customerService
-                        .searchCustomers({ query })
-                        .customers.map((v) => [
+                      rows={customerList(user!.id, query).map((v) => [
                           v.fullName,
                           v.phone,
                           v.email || "—",
+                          `${v.purchaseCount} · ${v.lastPurchase?.slice(0, 10) || 'Chưa mua'}`,
                           <Button
                             onPress={() => {
                               setForm({ id: v.id });
@@ -1108,6 +1180,8 @@ export function WebApp() {
                         "Email",
                         "Số điện thoại",
                         "Vị trí",
+                        'Ca / chi nhánh',
+                        'Thao tác',
                       ]}
                       rows={db.employees
                         .filter((v) =>
@@ -1115,7 +1189,7 @@ export function WebApp() {
                             .toLowerCase()
                             .includes(query.toLowerCase()),
                         )
-                        .map((v) => [v.fullName, v.email, v.phone, v.position])}
+                        .map((v) => [v.fullName, v.email, v.phone, v.position, `${v.shift || '—'} / ${v.branch || '—'}`, user?.role === 'admin' ? <Button onPress={() => setBaoDialog({ action: 'employee-edit', id: v.id })}>Sửa</Button> : '—'])}
                     />
                   )}
                 </>
@@ -1124,7 +1198,11 @@ export function WebApp() {
           </View>
         </View>
       )}
-      {!!notice && !modal && (
+      {baoDialog && <BaoDialog key={`${baoDialog.action}-${baoDialog.id || ''}`} action={baoDialog.action} targetId={baoDialog.id} userId={user?.id} onClose={() => setBaoDialog(null)} onSaved={() => {
+        setBaoDialog(null); refresh(v => v + 1); setNotice('Đã lưu dữ liệu cục bộ.');
+        const current = db.invoices.find(i => i.id === draftId); if (current) setCustomer(current.customerId || '');
+      }} />}
+      {!!notice && !modal && !baoDialog && (
         <View
           style={{
             position: "absolute",
@@ -1224,6 +1302,7 @@ export function WebApp() {
                   .filter((c) => !c.isDeleted)
                   .map((c) => ({ label: c.name, value: c.id }))}
               />
+              <Choice label="Loại sản phẩm" value={form.productType || 'Gọng kính'} onChange={value => setForm({ ...form, productType: value })} options={['Gọng kính', 'Tròng kính', 'Kính râm', 'Phụ kiện'].map(value => ({ label: value, value }))} />
               {field("brand", "Thương hiệu")}
               {field("price", "Giá bán")}
               {field("stock", "Tồn kho")}
@@ -1307,21 +1386,7 @@ export function WebApp() {
               const v = db.invoices.find((v) => v.id === form.id);
               return v ? (
                 <>
-                  <Text style={ui.h2}>
-                    {v.invoiceCode} · {v.customerName}
-                  </Text>
-                  <Text style={ui.muted}>
-                    {new Date(v.createdAt).toLocaleString("vi-VN")}
-                  </Text>
-                  {v.items.map((i) => (
-                    <Text key={i.id} style={[ui.text, { marginTop: 15 }]}>
-                      {i.productName} × {i.quantity} — {money(i.lineTotal)}
-                    </Text>
-                  ))}
-                  <Text style={[ui.h2, { marginVertical: 20 }]}>
-                    {money(v.totalAmount)}
-                  </Text>
-                  {v.notes && <Text style={ui.text}>{v.notes}</Text>}
+                  <InvoiceContent invoice={v} />
                   {modal === "Thanh toán đơn chờ" && (
                     <>
                       <Choice
@@ -1336,16 +1401,12 @@ export function WebApp() {
                       <Button
                         primary
                         onPress={() => {
-                          const r = invoiceService.markAsPaid(
-                            v.id,
-                            payment as "cash" | "transfer",
-                          );
-                          if (!r.success) setNotice(r.error || "");
-                          else {
+                          try {
+                            completeDraft(user!.id, v.id, true, payment as 'cash' | 'transfer');
                             setModal("");
                             setNotice("Đã thanh toán hóa đơn.");
                             refresh(revision + 1);
-                          }
+                          } catch (e) { setNotice((e as Error).message); }
                         }}
                       >
                         Xác nhận thanh toán

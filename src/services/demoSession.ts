@@ -31,6 +31,7 @@ export async function setDemoPassword(userId: string, password: string) {
   const salt = crypto.randomUUID();
   records[userId] = { salt, digest: await digest(password, salt) };
   localStorage.setItem(credentialsKey, JSON.stringify(records));
+  localStorage.setItem(`elan_password_version_${userId}`, salt);
 }
 export async function loginDemo(
   email: string,
@@ -51,13 +52,17 @@ export async function loginDemo(
     ? (await digest(password, record.salt)) === record.digest
     : ["USR001", "USR002"].includes(user.id) && password === "Demo@123";
   if (!valid) throw new Error("Email hoặc mật khẩu chưa đúng.");
-  sessionStorage.setItem(sessionKey, user.id);
+  sessionStorage.setItem(sessionKey, JSON.stringify({ id: user.id, version: localStorage.getItem(`elan_password_version_${user.id}`) }));
   return user;
 }
 export function getDemoSession() {
   try {
-    const id = sessionStorage.getItem(sessionKey);
-    return db.users.find((u) => u.id === id && u.isActive) || null;
+    const stored = sessionStorage.getItem(sessionKey);
+    if (!stored) return null;
+    let session: { id: string; version: string | null };
+    try { session = JSON.parse(stored); } catch { session = { id: stored, version: null }; }
+    if (session.version !== localStorage.getItem(`elan_password_version_${session.id}`)) return null;
+    return db.users.find((u) => u.id === session.id && u.isActive) || null;
   } catch {
     return null;
   }

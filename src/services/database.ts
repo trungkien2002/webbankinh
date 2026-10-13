@@ -225,6 +225,16 @@ class Database {
     }
   }
 
+  // One localStorage write for related changes; retain memory on storage failure.
+  public transaction(update: (draft: DatabaseSchema) => void) {
+    const next: DatabaseSchema = JSON.parse(JSON.stringify(this.data));
+    update(next);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(this.storageKey, JSON.stringify(next));
+    }
+    this.data = next;
+  }
+
   public reset() {
     this.data = JSON.parse(JSON.stringify(initialDatabase));
     this.save();
