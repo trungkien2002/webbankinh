@@ -45,3 +45,31 @@
 - `src/services/customerService.ts`: Nghiệp vụ `KH004`.
 - `src/services/employeeService.ts`: Nghiệp vụ `NV001`.
 - `src/screens/home/index.tsx`: Giao diện React Native trực quan, đầy đủ biểu mẫu thao tác, thông báo modal cho toàn bộ 10 tính năng.
+
+---
+
+## Bổ sung ngày 2026-10-13 — Chuẩn bị phân hệ Bảo (`bao`)
+
+Giữ nguyên báo cáo Khánh ở trên. Bảo đã có bản rà soát và kế hoạch trong
+[`docs/bao/REVIEW.md`](docs/bao/REVIEW.md),
+[`docs/bao/API-PROPOSAL.md`](docs/bao/API-PROPOSAL.md) và
+[`docs/bao/ACCEPTANCE.md`](docs/bao/ACCEPTANCE.md).
+
+Kiểm tra bản nền thực tế: typecheck pass; 45 tests/6 files pass khi chạy ngoài
+sandbox; build:web pass. Expo install --check chưa pass: expo 57.0.27 trong lockfile,
+phiên bản kỳ vọng ~57.0.28. Chưa kiểm thử trình duyệt/backend. Kết quả và giới hạn
+chi tiết tại [`docs/bao/PROGRESS.md`](docs/bao/PROGRESS.md).
+
+Cả 10 story Bảo chưa triển khai/nghiệm thu. Blocker: Python chưa chạy được để cài
+skill bắt buộc; thiếu baseline backend/auth/API và tài liệu tích hợp được duyệt.
+Bước tiếp theo: khôi phục Python/cài skill, chốt API với Kiên, fetch/merge main
+trước từng story rồi triển khai theo sprint. Chưa push hoặc tạo PR.
+
+### Cập nhật Bảo — người dùng chuyển sang demo cục bộ
+
+Người dùng yêu cầu “không cần backend”, đồng ý và giao triển khai. Đã làm UI,
+service và localStorage cho cả 10 story Bảo; chỉ đánh giá trong phạm vi demo local.
+Python/skill đã sẵn sàng. Typecheck/build:web pass; 57 tests/7 files pass; 13 nhóm
+browser check pass, có kiểm tra reload, chống nhấn đôi tạo draft, viewport 390px,
+snapshot hóa đơn và xuất PDF từ template. Không có kết quả native/backend/email thật.
+Hướng dẫn chạy: README.md. Quyết định: info.md. Báo cáo chi tiết: docs/bao/PROGRESS.md.
