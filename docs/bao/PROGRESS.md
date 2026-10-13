@@ -39,6 +39,17 @@ info.md và ma trận ACCEPTANCE.md mô tả phạm vi mới.
 Đã cập nhật expo từ ~57.0.27 lên ~57.0.28 bằng expo install, giữ SDK 57 và npm.
 Sau cập nhật: typecheck, 57 tests, build:web và expo install --check đều pass.
 
+### Bàn giao Git
+
+Đã lưu commit local trên nhánh bao, tác giả commit tự động là Codex:
+ffb465b (DN003/NV002 password), 6a6b7e0 (9 story còn lại/UI và tests),
+3d3f646 (Expo patch/gitignore), f18f2ab (docs/script/ảnh/PDF). Worktree đã kiểm tra sạch.
+Fetch/merge origin/main trước bàn giao trả Already up to date.
+
+Chưa push hoặc tạo PR: auto-review từ chối push vì cần người dùng xác nhận rõ việc
+xuất bản mã nguồn, tài liệu, ảnh và PDF lên GitHub. Phần local đã hoàn thành;
+chỉ tiếp tục xuất bản sau xác nhận. Mô tả PR chuẩn bị ở PR.md, reviewer Kiên.
+
 ### Lịch sử chuẩn bị ban đầu
 
 Ngày 2026-10-13; nhánh `bao`; baseline `277868d00ec54492daa804f3bb3c528a480d8e85`.
