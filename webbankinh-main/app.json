@@ -1,6 +1,10 @@
 {
   "expo": {
+<<<<<<< HEAD
     "name": "Élan Eyewear",
+=======
+    "name": "Quản lý bán kính - Nhóm 4",
+>>>>>>> 49d1c2308f79763b90d6e7cdaca83432bb9e9d15
     "slug": "webbankinh",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -22,10 +26,14 @@
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/favicon.png"
+<<<<<<< HEAD
     },
     "plugins": [
       "expo-font",
       "expo-asset"
     ]
+=======
+    }
+>>>>>>> 49d1c2308f79763b90d6e7cdaca83432bb9e9d15
   }
 }

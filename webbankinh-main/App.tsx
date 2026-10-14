@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { StatusBar } from "expo-status-bar";
 import { WebApp } from "./src/screens/web";
 import { useFonts } from "expo-font";
@@ -12,7 +13,20 @@ export default function App() {
     <>
       <WebStyles />
       <WebApp />
+=======
+import { StatusBar } from 'expo-status-bar';
+import { Home } from './src/screens/home';
+
+export default function App() {
+  return (
+    <>
+      <Home />
+>>>>>>> 49d1c2308f79763b90d6e7cdaca83432bb9e9d15
       <StatusBar style="auto" />
     </>
   );
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 49d1c2308f79763b90d6e7cdaca83432bb9e9d15
