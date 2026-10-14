@@ -1,0 +1,23 @@
+{
+  "results": [
+    "Login demo",
+    "LSP003/LSP007 category edit and detail",
+    "Regression: category rename preserves product type during product creation",
+    "SP004 product list, stock filter and sort",
+    "VC001 voucher create",
+    "BH001 create draft, save cart and restore after reload",
+    "BH005 measurements and existing checkout integration",
+    "HD003 snapshots and print adapter (mocked print dialog, no payment mutation)",
+    "KH003 customer list and paid purchase summary",
+    "NV002 employee edit",
+    "Narrow viewport 390px without body overflow",
+    "DN003 local OTP reset and login with new password",
+    "Invoice HTML rendered to actual PDF with Chrome"
+  ],
+  "runtimeErrors": [],
+  "limits": [
+    "Native not tested",
+    "System print dialog mocked; PDF generated from invoice template by Chrome",
+    "Data belongs to a temporary Chrome profile"
+  ]
+}
