@@ -89,3 +89,5 @@
 ## Bản giao diện được duyệt (15/10/2026)
 - Người dùng chốt bản hiện tại tại8086 là bản hoàn thiện, yêu cầu sao lưu lên nhánh kien và merge vào main trước khi nhập nhánh thành viên khác. Phạm vi phát hành là worktree outputs/bao-review-20261015 trên nền7cebb93; phần Sprint1Kiên chưa commit ở checkout chính được giữ riêng, chưa nhập vào bản này.
 
+
+- Đã xuất bản: origin/kien951aacf là mốc sao lưu bản duyệt; main đã merge47df00a (cha7cebb93 và951aacf). Chưa merge nhánh Hoan/Khánh hay phần Sprint1Kiên local mới. Local checkout chính kien vẫn giữ nền277868d và thay đổi chưa commit, không tự pull/reset lên remote kien mới.

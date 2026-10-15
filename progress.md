@@ -1,4 +1,5 @@
 ## Trạng thái hiện tại
+- 2026-10-15 13:43: đã push bản duyệt lên origin/kien951aacf và merge/push main47df00a. 67/67test, typecheck đạt; code/assets hai nhánh trùng nhau. Giữ riêng Sprint1Kiên chưa commit ở checkout chính; chưa nhập nhánh thành viên khác.
 - 2026-10-15 13:27: tiếp tục sau khi quota phục hồi; hoàn tất Toast cho lỗi form nhân viên/voucher/upload ảnh, cập nhật8086. 63/63test, typecheck/build đạt; browser xác nhận lỗi nhân viên tự tắt, hiện lại sau thao tác lặp và lỗi voucher hiển thị cùng Toast. Chưa commit/push.
 - 2026-10-15 11:36: hoàn thiện hồ sơ thành viên theo ảnh mẫu và popup admin, dữ liệu khách hư cấu, bí danh đăng nhập riêng, khôi phục login chia hai cột, bỏ điều hướng dư, sửa dot/gallery/gợi ý mobile. 63/63 test, typecheck/build đạt; browser kiểm tra 320/390/768/1440px, đăng nhập khách/admin thành công; chưa commit/push. Bản chạy8086 trong outputs/bao-review-20261015, giữ nguyên Sprint1 Kiên ở checkout chính.
 - 2026-10-15 05:30: lịch đã chạy; sửa guard/kiểm tra hết phiên khách và CSS web resolver. Đăng ký/checkout/profile đã kiểm qua browser; 61/61 test, typecheck/build đạt. Nhánh Hoan có gitlink/dự án lồng và conflict chưa giải quyết, không merge.
@@ -235,3 +236,8 @@
 ## 2026-10-15 — xuất bản bản giao diện đã duyệt
 - Người dùng duyệt bản8086 và cho phép push kien, merge main trước các nhánh khác. Đã fetch: origin/main vẫn7cebb93, origin/kien fbc6b3e là tổ tiên của bản hiện tại, không cần force push. Đang kiểm tra và đóng gói mã/ảnh/hồ sơ. Giữ nguyên thay đổi Sprint1Kiên chưa commit tại checkout chính.
 
+
+## 2026-10-15 13:43 — sao lưu kien và merge main hoàn tất
+- Commit951aacf gồm mã giao diện đã duyệt,32ảnh góc mới,67test và hồ sơ dự án; push kien thành công, không force. Tạo merge47df00a và push main thành công. git ls-remote xác nhận cả hai ref; diff code/assets/data/package giữa hai nhánh rỗng.
+- Kiểm tra trước phát hành:67/67test,typecheck và diff --check đạt; bản build web cuối lượt trước đã đạt và mã chỉ chỉnh khoảng trắng. Không có nhánh thành viên mới được merge. Bản8086 vẫn phục vụ dist đã duyệt.
+- Checkout chính vẫn trên kien277868d cùng các file Sprint1chưa commit, không reset/pull. Các commit mới ở worktree outputs/bao-review-20261015; nhánh kien remote hiện mới hơn local chính, cần xử lý riêng khi tích hợp Sprint1.
