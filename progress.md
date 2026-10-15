@@ -253,3 +253,7 @@
 - Fetch nhánhkhanh a4ea53d; hai commitgốc507b42b/a4ea53d chưa là ancestor main, nhưng logic10story/39test đã hiện diện từ lần nhập trước. a4ea53d chỉ sửa tiến độ. Giữ nguyên logic main có các bổ sung mới.
 - Tạo merge ancestry bằng ours để đưa commitgốc/tác giảKhanh123453 vào lịch sửmain. Diff src/assets/data/package rỗng,79/79test vàtypecheck đạt. Không buildlại vìcode/dependency không đổi. Đã pushmain5da1f71; xác nhận origin/khanh là ancestor và diffcode/giao diện rỗng. Không sửa backupkien hoặccheckoutchính.
 
+
+## 2026-10-15 — bỏ README
+- Xóa README.md ở root theo yêu cầu người dùng; chỉ thay tài liệu, không đổi mã/giao diện. Lưu bằng Git để có thể khôi phục.
+
