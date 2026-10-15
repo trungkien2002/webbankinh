@@ -1,3 +1,4 @@
+import { Toast } from './toast';
 import React, { useState } from "react";
 import { Text } from "react-native";
 import { Button, Field, ui } from "./ui";
@@ -30,7 +31,7 @@ export function EmployeeForm({ onSaved }: { onSaved: () => void }) {
           onChange={(v) => setValues({ ...values, [key]: v })}
         />
       ))}
-      <Text style={ui.error}>{error}</Text>
+      <Toast message={error} onClose={() => setError('')} />
       <Button
         primary
         disabled={busy}

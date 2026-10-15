@@ -3,6 +3,20 @@ import { Image, Pressable, Text, View } from "react-native";
 import { palette, ui } from "./ui";
 
 const paths = {
+  gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13M12 8S5 8 5 4s7 0 7 4Zm0 0s7 0 7-4-7 0-7 4Z"/>',
+  copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V3H3v13h5"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  edit: '<path d="m4 16-1 5 5-1L21 7l-4-4L4 16ZM14 6l4 4"/>',
+  pause: '<path d="M8 4v16M16 4v16"/>',
+  play: '<path d="m7 4 14 8-14 8V4Z"/>',
+  upload: '<path d="M12 16V3m-5 5 5-5 5 5M3 15v6h18v-6"/>',
+  trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',
+  cash: '<rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M5 9v6M19 9v6"/>',
+  bank: '<path d="m3 8 9-5 9 5H3ZM3 21h18M6 10v8M12 10v8M18 10v8"/>',
+  check: '<path d="m5 12 4 4L19 6"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  arrow: '<path d="M4 12h16m-6-6 6 6-6 6"/>',
+  receipt: '<path d="M5 3v18l3-2 4 2 4-2 3 2V3H5ZM8 7h8M8 11h8M8 15h5"/>',
   bag: '<path d="M6 7h12l2 14H4L6 7Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',

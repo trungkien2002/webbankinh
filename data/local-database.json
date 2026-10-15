@@ -1012,9 +1012,9 @@
     {
       "id": "CUS001",
       "customerCode": "KH0001",
-      "fullName": "Nguyễn Văn An",
-      "phone": "0900000001",
-      "email": "an.nguyen@example.com",
+      "fullName": "Nguyễn Minh Anh",
+      "phone": "0384756291",
+      "email": "minhanh@example.com",
       "address": "Hà Nội",
       "prescriptions": [
         {
@@ -1035,9 +1035,9 @@
     {
       "id": "CUS002",
       "customerCode": "KH0002",
-      "fullName": "Trần Thị Bình",
-      "phone": "0900000002",
-      "email": "binh.tran@example.com",
+      "fullName": "Trần Bảo Ngọc",
+      "phone": "0796328145",
+      "email": "baongoc@example.com",
       "address": "TP. Hồ Chí Minh",
       "prescriptions": [],
       "createdAt": "2026-10-12T17:09:40.082Z",

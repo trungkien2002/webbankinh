@@ -1,3 +1,5 @@
+import { MeasurementForm } from './measurementForm';
+import { Toast } from './toast';
 import React, { useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { EyePrescription, Invoice } from '../contracts/domain';
@@ -13,20 +15,23 @@ const titles: Record<BaoAction, string> = {
   'category-detail': 'Chi tiết phân loại kính', 'voucher-create': 'Tạo voucher',
   measurement: 'Khách hàng và thông số đo mắt', 'invoice-detail': 'Chi tiết hóa đơn', 'employee-edit': 'Sửa nhân viên',
 };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
+const displayDate = (value?: string) => value ? new Date(value).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'Chưa thanh toán';
+const paymentLabels: Record<string,string> = { draft: 'Đơn nháp', pending: 'Chờ thanh toán', paid: 'Đã thanh toán', cancelled: 'Đã hủy' };
+const productionLabels: Record<string,string> = { none: 'Không gia công', cutting_lens: 'Đang cắt tròng', ready: 'Sẵn sàng', delivered: 'Đã giao' };
 export function InvoiceContent({ invoice }: { invoice: Invoice }) {
   const [error, setError] = useState('');
   const prescription = invoice.prescription;
-  return <View>
+  return <View style={{ gap: 20 }}>
     <Text selectable style={ui.h2}>{invoice.invoiceCode}</Text>
-    <Text selectable style={ui.text}>Ngày tạo: {invoice.createdAt}{'\n'}Khách: {invoice.customerName || 'Khách vãng lai'} · {invoice.customerPhone || '—'}{'\n'}Nhân viên: {invoice.employeeName}{'\n'}Trạng thái: {invoice.paymentStatus} · Gia công: {invoice.productionStatus}</Text>
+    <Text selectable style={[ui.text, { lineHeight: 28, padding: 18, backgroundColor: "#f0f4ee", borderRadius: 10 }]}>Ngày tạo: {displayDate(invoice.createdAt)}{'\n'}Khách: {invoice.customerName || 'Khách vãng lai'} · {invoice.customerPhone || '—'}{'\n'}Nhân viên: {invoice.employeeName}{'\n'}Trạng thái: {paymentLabels[invoice.paymentStatus] || invoice.paymentStatus} · Gia công: {productionLabels[invoice.productionStatus] || invoice.productionStatus}</Text>
     <Table headings={['Sản phẩm', 'SL', 'Đơn giá', 'Thành tiền']} rows={invoice.items.map(item => [item.productName + ' / ' + item.sku, String(item.quantity), money(item.unitPrice), money(item.lineTotal)])} />
-    <Text selectable style={ui.text}>Tạm tính: {money(invoice.subtotal)}{'\n'}Giảm giá: {money(invoice.discountAmount)} · {invoice.voucherCode || '—'}{'\n'}Tổng: {money(invoice.totalAmount)}{'\n'}Thanh toán: {invoice.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'} · {invoice.paidAt || 'Chưa thanh toán'}</Text>
+    <Text selectable style={[ui.text, { lineHeight: 30, padding: 18, backgroundColor: "#f0f4ee", borderRadius: 10 }]}>Tạm tính: {money(invoice.subtotal)}{'\n'}Giảm giá: {money(invoice.discountAmount)} · {invoice.voucherCode || '—'}{'\n'}Tổng: {money(invoice.totalAmount)}{'\n'}Thanh toán: {invoice.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'} · {displayDate(invoice.paidAt)}</Text>
     {prescription ? <><Text style={ui.h2}>Thông số đo mắt</Text><Table headings={['Mắt', 'SPH', 'CYL', 'AXIS']} rows={[
       ['Phải', String(prescription.sphereRight), String(prescription.cylinderRight), String(prescription.axisRight)],
       ['Trái', String(prescription.sphereLeft), String(prescription.cylinderLeft), String(prescription.axisLeft)],
     ]} /><Text selectable style={ui.text}>PD: {prescription.pupillaryDistance} mm · Ngày đo: {prescription.measuredAt}{'\n'}{prescription.notes}</Text></> : <Text style={ui.muted}>Không có thông số đo mắt.</Text>}
-    <Text selectable style={ui.error}>{error}</Text>
+    <Toast message={error} onClose={()=>setError('')}/>
     <Button onPress={() => { setError(''); printInvoice(invoice).catch(e => setError((e as Error).message)); }}>In / Lưu PDF</Button>
     <Text style={ui.muted}>Chọn “Lưu dưới dạng PDF” trong hộp thoại in của trình duyệt. In lại không thay đổi thanh toán.</Text>
   </View>;
@@ -102,14 +107,7 @@ export function BaoDialog({ action, targetId = '', userId = '', onClose, onSaved
       <Choice label="Loại giảm" value={form.discountType} onChange={value => set('discountType', value)} options={[{ label: 'Phần trăm', value: 'percentage' }, { label: 'Số tiền VND', value: 'fixed' }]} />
       {field('discountValue', 'Mức giảm')}{field('minOrderValue', 'Đơn tối thiểu (VND)')}{field('maxDiscountAmount', 'Trần giảm (VND, tùy chọn)')}{field('startDate', 'Từ ngày (YYYY-MM-DD)')}{field('endDate', 'Đến ngày (YYYY-MM-DD)')}
     </>;
-    if (action === 'measurement') return <>
-      <Choice label="Khách hàng" value={form.customerId} onChange={value => set('customerId', value)} options={db.customers.map(c => ({ label: `${c.fullName} · ${c.phone}`, value: c.id }))} />
-      <Choice label="Đơn cần thông số đo mắt?" value={form.required} onChange={value => set('required', value)} options={[{ label: 'Không cần đo', value: 'no' }, { label: 'Có đo mắt', value: 'yes' }]} />
-      {form.required === 'yes' && <><Text style={ui.muted}>Giới hạn nhập demo: SPH −30…30; CYL −10…10; AXIS 0…180; PD 40…80 mm. Đây là quy tắc nhập liệu, không phải tư vấn y khoa.</Text>
-        <Text style={ui.h2}>Mắt phải</Text>{field('sphereRight', 'SPH phải')}{field('cylinderRight', 'CYL phải')}{field('axisRight', 'AXIS phải')}
-        <Text style={ui.h2}>Mắt trái</Text>{field('sphereLeft', 'SPH trái')}{field('cylinderLeft', 'CYL trái')}{field('axisLeft', 'AXIS trái')}
-        {field('pupillaryDistance', 'PD (mm)')}{field('measuredAt', 'Ngày đo (YYYY-MM-DD)')}{field('notes', 'Ghi chú')}</>}
-    </>;
+    if (action === 'measurement') return <MeasurementForm form={form} set={set} />;
     return <>
       {field('fullName', 'Họ tên')}{field('phone', 'Số điện thoại')}{field('email', 'Email')}{field('position', 'Vị trí')}{field('shift', 'Ca làm')}{field('branch', 'Chi nhánh')}
       {employee?.userId && <><Choice label="Vai trò tài khoản" value={form.role} onChange={value => set('role', value)} options={[{ label: 'Admin', value: 'admin' }, { label: 'Nhân viên', value: 'employee' }]} />
@@ -121,7 +119,7 @@ export function BaoDialog({ action, targetId = '', userId = '', onClose, onSaved
   };
   return <Sheet title={titles[action]} onClose={() => { if (!busy) onClose(); }}>
     {content()}
-    <Text selectable style={ui.error}>{error}</Text>
+    <Toast message={error} onClose={()=>setError('')}/>
     {!['password-reset', 'category-detail', 'invoice-detail'].includes(action) && <Button primary disabled={busy} onPress={save}>{busy ? 'Đang lưu…' : 'Lưu'}</Button>}
   </Sheet>;
 }

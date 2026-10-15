@@ -39,6 +39,27 @@ export interface ServiceResult<T> {
 }
 
 export class ProductService {
+  public updateProduct(productId: string, input: CreateProductInput): ServiceResult<Product> {
+    if (input.currentActorRole !== 'admin') return {success:false,error:'Chỉ quản trị viên được sửa sản phẩm.'};
+    const product=db.products.find(p=>p.id===productId&&!p.isDeleted);
+    if(!product)return {success:false,error:'Sản phẩm không tồn tại.'};
+    const sku=input.sku.trim().toUpperCase(),name=input.name.trim();
+    if(!sku||!name)return {success:false,error:'Nhập đầy đủ mã và tên sản phẩm.'};
+    if(db.products.some(p=>p.id!==productId&&!p.isDeleted&&p.sku.toUpperCase()===sku))return {success:false,error:'Mã SKU đã tồn tại.'};
+    if(!db.categories.some(c=>c.id===input.categoryId&&!c.isDeleted))return {success:false,error:'Phân loại không hợp lệ.'};
+    if(!Number.isFinite(input.price)||input.price<0||!Number.isInteger(input.stock)||input.stock<0)return {success:false,error:'Giá và tồn kho phải hợp lệ, không âm; tồn kho là số nguyên.'};
+    try {
+      db.transaction(data=>{const target=data.products.find(p=>p.id===productId)!;Object.assign(target,{sku,name,categoryId:input.categoryId,productType:input.productType,price:input.price,stock:input.stock,brand:input.brand?.trim(),imageUrl:input.imageUrl,imageOverride:product.imageOverride||input.imageUrl!==product.imageUrl,updatedAt:new Date().toISOString()});});
+      return {success:true,data:db.products.find(p=>p.id===productId)};
+    }catch{return {success:false,error:'Không thể lưu sản phẩm.'};}
+  }
+  public deleteProduct(productId:string,currentActorRole:'admin'|'employee'):ServiceResult<Product> {
+    if(currentActorRole!=='admin')return {success:false,error:'Chỉ quản trị viên được xóa sản phẩm.'};
+    const product=db.products.find(p=>p.id===productId&&!p.isDeleted);
+    if(!product)return {success:false,error:'Sản phẩm không tồn tại.'};
+    try{db.transaction(data=>{const target=data.products.find(p=>p.id===productId)!;target.isDeleted=true;target.updatedAt=new Date().toISOString();});return {success:true};}
+    catch{return {success:false,error:'Không thể xóa sản phẩm.'};}
+  }
   /**
    * SP001: Thêm sản phẩm kính thủ công
    * - Chỉ Admin mới có quyền

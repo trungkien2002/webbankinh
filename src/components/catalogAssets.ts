@@ -1,3 +1,4 @@
+import { db } from '../services/database';
 import { Asset } from "expo-asset";
 const assets: Record<string, number> = {
   CATALOG_EL0001: require("../../assets/catalog/EL0001.jpg"),
@@ -52,4 +53,4 @@ const assets: Record<string, number> = {
   CATALOG_EL0050: require("../../assets/catalog/EL0050.jpg"),
 };
 export const catalogImage = (id: string) =>
-  assets[id] ? Asset.fromModule(assets[id]).uri : undefined;
+  db.products.find(p => p.id === id)?.imageOverride ? db.products.find(p => p.id === id)?.imageUrl : assets[id] ? Asset.fromModule(assets[id]).uri : undefined;
