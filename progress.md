@@ -1,4 +1,5 @@
 ## Trạng thái hiện tại
+- 2026-10-15 13:57: đã merge/push lịch sử đóng góp Khánh lên main5da1f71; commit507b42b vàa4ea53d giữ author gốc. Logic đã có nên không thay mã/giao diện;79/79test,typecheck đạt.
 - 2026-10-15 13:54: main đã tích hợp logic Hoan bằng mergeab1dd15; Bảo đã có sẵn. 79/79test,typecheck/build đạt. Không đổi bất kỳ component/screen/CSS/ảnh/seed/package nào; chưa nối mànUI mới cho import/QR/chỉnh khách/khóauser. Backupkien951aacf giữ nguyên.
 - 2026-10-15 13:43: đã push bản duyệt lên origin/kien951aacf và merge/push main47df00a. 67/67test, typecheck đạt; code/assets hai nhánh trùng nhau. Giữ riêng Sprint1Kiên chưa commit ở checkout chính; chưa nhập nhánh thành viên khác.
 - 2026-10-15 13:27: tiếp tục sau khi quota phục hồi; hoàn tất Toast cho lỗi form nhân viên/voucher/upload ảnh, cập nhật8086. 63/63test, typecheck/build đạt; browser xác nhận lỗi nhân viên tự tắt, hiện lại sau thao tác lặp và lỗi voucher hiển thị cùng Toast. Chưa commit/push.
@@ -250,5 +251,5 @@
 
 ## 2026-10-15 13:56 — merge đóng góp Khánh, giữ nguyên giao diện
 - Fetch nhánhkhanh a4ea53d; hai commitgốc507b42b/a4ea53d chưa là ancestor main, nhưng logic10story/39test đã hiện diện từ lần nhập trước. a4ea53d chỉ sửa tiến độ. Giữ nguyên logic main có các bổ sung mới.
-- Tạo merge ancestry bằng ours để đưa commitgốc/tác giảKhanh123453 vào lịch sửmain. Diff src/assets/data/package rỗng,79/79test vàtypecheck đạt. Không buildlại vìcode/dependency không đổi. Đang pushmain; không sửa backupkien hoặccheckoutchính.
+- Tạo merge ancestry bằng ours để đưa commitgốc/tác giảKhanh123453 vào lịch sửmain. Diff src/assets/data/package rỗng,79/79test vàtypecheck đạt. Không buildlại vìcode/dependency không đổi. Đã pushmain5da1f71; xác nhận origin/khanh là ancestor và diffcode/giao diện rỗng. Không sửa backupkien hoặccheckoutchính.
 
