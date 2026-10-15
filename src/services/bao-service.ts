@@ -126,8 +126,8 @@ export function saveMeasurement(userId: string, invoiceId: string, customerId: s
       prescription: prescription ? JSON.parse(JSON.stringify(prescription)) : undefined, updatedAt: now() });
   });
 }
-export function completeDraft(userId: string, invoiceId: string, paid: boolean, paymentMethod: 'cash' | 'transfer') {
-  if (!['cash', 'transfer'].includes(paymentMethod)) throw new Error('Phương thức thanh toán không hợp lệ.');
+export function completeDraft(userId: string, invoiceId: string, paid: boolean, paymentMethod: import('../contracts/domain').InvoicePaymentMethod, idempotencyKey?: string) {
+  if (!['cash', 'transfer', 'card', 'qr'].includes(paymentMethod)) throw new Error('Phương thức thanh toán không hợp lệ.');
   const invoice = editable(userId, invoiceId);
   if (!invoice.items.length) throw new Error('Hãy thêm sản phẩm trước khi lưu đơn chờ hoặc thanh toán.');
   if (invoice.items.some(item => db.products.find(p => p.id === item.productId)?.productType === 'Tròng kính') && !invoice.prescription)
@@ -147,6 +147,10 @@ export function completeDraft(userId: string, invoiceId: string, paid: boolean, 
       discountAmount: discount?.discountAmount || 0, voucherDiscountSnapshot: discount?.discountAmount || 0,
       totalAmount: target.subtotal - (discount?.discountAmount || 0) });
     if (paid) {
+      if (idempotencyKey) {
+        if (data.payments.some(p => p.idempotencyKey === idempotencyKey)) throw new Error('Khóa thanh toán đã được sử dụng.');
+        data.payments.push({id: id('PAY'), invoiceId, idempotencyKey, method: paymentMethod, amount: target.totalAmount, createdAt: now()});
+      }
       for (const product of data.products) product.stock -= quantities.get(product.id) || 0;
       const voucher = data.vouchers.find(v => v.code === target.voucherCode);
       if (voucher) voucher.usageCount++;

@@ -128,7 +128,7 @@ export interface Invoice {
   voucherCode?: string;
   voucherDiscountSnapshot?: number;
   totalAmount: number;
-  paymentMethod: 'cash' | 'transfer';
+  paymentMethod: InvoicePaymentMethod;
   paymentStatus: InvoicePaymentStatus; // draft -> pending (treo đơn) -> paid (đã thanh toán)
   productionStatus: InvoiceProductionStatus; // Trạng thái mài lắp tròng kính
   prescription?: EyePrescription;
@@ -137,3 +137,7 @@ export interface Invoice {
   paidAt?: string;
   updatedAt: string;
 }
+
+export type InvoicePaymentMethod = 'cash' | 'transfer' | 'card' | 'qr';
+export interface PaymentRecord { id: string; invoiceId: string; idempotencyKey: string; method: InvoicePaymentMethod; amount: number; createdAt: string; }
+export interface StockMovement { id: string; productId: string; quantity: number; reason: 'import'; importKey: string; lot?: string; createdAt: string; }

@@ -91,3 +91,9 @@
 
 
 - Đã xuất bản: origin/kien951aacf là mốc sao lưu bản duyệt; main đã merge47df00a (cha7cebb93 và951aacf). Chưa merge nhánh Hoan/Khánh hay phần Sprint1Kiên local mới. Local checkout chính kien vẫn giữ nền277868d và thay đổi chưa commit, không tự pull/reset lên remote kien mới.
+
+## Tích hợp logic thành viên, giữ giao diện đã duyệt
+- Đợt15/10/2026 chỉ lấy service/contracts/test và phụ trợ lưu dữ liệu. Bảo926c4c8 đã có trong main, không merge lại. Hoane262a6d lấy hoan-service/test, bỏ hoan-dialog, gitlink và webbankinh-main lồng nhau.
+- Bổ sung sổ importKeys/stockMovements/payments với migration mặc định rỗng cho dữ liệu local cũ. Thanh toán local có khóa chống lặp gắn invoice/method và ghi cùng transaction với tồn kho/voucher. Thêm import preview, tìm kiếm, chỉnh khách/khóa user qua service API; không thêm màn hình mới. QR là payload demo, adapter đọc file Excel chưa có trong nhánh nên chưa cung cấp uploadxlsx quaUI.
+- Chi tiết phạm vi/nguồn/kiểm chứng tại docs/integration-bao-hoan-20261015.md. Giữ nguyên component/screen/CSS/ảnh/seed/package; backupkien951aacf còn nguyên.
+

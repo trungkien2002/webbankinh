@@ -241,3 +241,9 @@
 - Commit951aacf gồm mã giao diện đã duyệt,32ảnh góc mới,67test và hồ sơ dự án; push kien thành công, không force. Tạo merge47df00a và push main thành công. git ls-remote xác nhận cả hai ref; diff code/assets/data/package giữa hai nhánh rỗng.
 - Kiểm tra trước phát hành:67/67test,typecheck và diff --check đạt; bản build web cuối lượt trước đã đạt và mã chỉ chỉnh khoảng trắng. Không có nhánh thành viên mới được merge. Bản8086 vẫn phục vụ dist đã duyệt.
 - Checkout chính vẫn trên kien277868d cùng các file Sprint1chưa commit, không reset/pull. Các commit mới ở worktree outputs/bao-review-20261015; nhánh kien remote hiện mới hơn local chính, cần xử lý riêng khi tích hợp Sprint1.
+
+## 2026-10-15 13:52 — tích hợp logic Bảo/Hoan
+- Fetch: Bảo926c4c8 không có commit ngoài main; Hoane262a6d có3file root mới và bản sao/gitlink lồng. Chỉ lấy2file service/test, bổ sung contracts/database/session/completeDraft cần thiết. Không lấy giao diện hay bản dự án lồng.
+- Sửa điểm tương thích: removeInvoiceItem dòng cuối xóa đơn; paymentkey ràng buộc đơn/method; tiền mặt kiểm theo voucher hiện hành; email khách kiểm hợp lệ/trùng; dữ liệu cũ nhận ledger mới mà không reset.
+-79/79test,typecheck/exportweb đạt; gitdiff src/components src/screens assets data package so với e9829b9 rỗng. Các tính năng import/QR/chỉnh khách/khóauser mới chỉ tầngservice, không thêm mànUI theo yêu cầu. Đang đóng gói merge chọn lọc và pushmain; giữ backupkien và Sprint1local.
+

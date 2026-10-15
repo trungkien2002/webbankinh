@@ -1,10 +1,13 @@
 // src/services/database.ts
 // Local Database & State Persistence cho hệ thống quản lý bán kính thời trang
 
-import { User, Employee, Category, Product, Voucher, Customer, Invoice } from '../contracts/domain';
+import { User, Employee, Category, Product, Voucher, Customer, Invoice, PaymentRecord, StockMovement } from '../contracts/domain';
 import sharedDatabase from '../../data/local-database.json';
 
 interface DatabaseSchema {
+  importKeys: string[];
+  payments: PaymentRecord[];
+  stockMovements: StockMovement[];
   users: User[];
   employees: Employee[];
   categories: Category[];
@@ -15,6 +18,7 @@ interface DatabaseSchema {
 }
 
 const initialDatabase: DatabaseSchema = {
+  importKeys: [], payments: [], stockMovements: [],
   users: [
     {
       id: 'USR001',
@@ -209,14 +213,18 @@ class Database {
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
         try {
-          return JSON.parse(stored);
+          return this.normalize(JSON.parse(stored));
         } catch (e) {
           console.error('Error parsing stored database, using fallback', e);
         }
       }
     }
     // Deep clone initialDatabase
-    return JSON.parse(JSON.stringify(sharedDatabase));
+    return this.normalize(JSON.parse(JSON.stringify(sharedDatabase)));
+  }
+
+  private normalize(data: Partial<DatabaseSchema>): DatabaseSchema {
+    return { ...data, importKeys: data.importKeys || [], payments: data.payments || [], stockMovements: data.stockMovements || [] } as DatabaseSchema;
   }
 
   private save() {
@@ -239,6 +247,9 @@ class Database {
     this.data = JSON.parse(JSON.stringify(initialDatabase));
     this.save();
   }
+  public get importKeys() { return this.data.importKeys; }
+  public get payments() { return this.data.payments; }
+  public get stockMovements() { return this.data.stockMovements; }
 
   public get users(): User[] {
     return this.data.users;

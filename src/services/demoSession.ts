@@ -83,3 +83,7 @@ export function logoutDemo() {
     /* Ngoài web không có phiên trình duyệt. */
   }
 }
+export function revokeUserSessions(userId: string) {
+  // Local session version changes also invalidate sessions in other tabs.
+  localStorage.setItem(`elan_password_version_${userId}`, crypto.randomUUID());
+}
