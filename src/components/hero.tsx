@@ -11,7 +11,6 @@ import {
 import { db } from "../services/database";
 import { catalogImage } from "./catalogAssets";
 import { Button, palette, ui } from "./ui";
-import { IconButton } from "./icons";
 
 const slides = [
   {
@@ -20,7 +19,7 @@ const slides = [
     caption: "Đường nét riêng, phong cách riêng.",
     sku: "EL0001",
     text: "Thiết kế tinh giản, sắc màu tự nhiên. Khám phá chiếc kính vừa vặn với phong cách của bạn.",
-    bg: "#e9eddf",
+    bg: "#e9e9e9",
   },
   {
     title: "Mang theo\nmột chút nắng.",
@@ -28,7 +27,7 @@ const slides = [
     caption: "Một góc nhìn mới cho ngày đầy nắng.",
     sku: "EL0021",
     text: "Kính râm với những đường nét đầy cá tính, dành cho những ngày bạn muốn bước ra ngoài.",
-    bg: "#ece2d2",
+    bg: "#e9e9e9",
   },
   {
     title: "Một góc nhìn\nrất riêng.",
@@ -36,14 +35,13 @@ const slides = [
     caption: "Chi tiết nhỏ. Cá tính lớn.",
     sku: "EL0004",
     text: "Từ gọng thanh mảnh đến kiểu dáng nổi bật. Chọn thiết kế khiến bạn tự tin mỗi ngày.",
-    bg: "#e1e9e5",
+    bg: "#e9e9e9",
   },
 ];
 export function Hero({ onExplore }: { onExplore: () => void }) {
   const { width } = useWindowDimensions();
   const small = width < 850;
   const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [reduced, setReduced] = useState(false);
   const opacity = useRef(new Animated.Value(1)).current;
@@ -56,13 +54,13 @@ export function Hero({ onExplore }: { onExplore: () => void }) {
     return () => media.removeEventListener("change", update);
   }, []);
   useEffect(() => {
-    if (paused || hovered || reduced) return;
+    if (hovered || reduced) return;
     const timer = setInterval(() => {
       if (Platform.OS !== "web" || document.visibilityState === "visible")
         setIndex((i) => (i + 1) % slides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [paused, hovered, reduced]);
+  }, [hovered, reduced]);
   useEffect(() => {
     opacity.setValue(reduced ? 1 : 0);
     Animated.timing(opacity, {
@@ -96,8 +94,8 @@ export function Hero({ onExplore }: { onExplore: () => void }) {
       >
         <View
           style={{
-            flex: 1,
-            padding: small ? 26 : 44,
+            flex: small ? undefined : 1,
+            padding: small ? 24 : 44,
             justifyContent: "center",
             minWidth: 0,
           }}
@@ -116,8 +114,8 @@ export function Hero({ onExplore }: { onExplore: () => void }) {
           <Text
             style={{
               fontFamily: "ElanSans",
-              fontSize: small ? 34 : width < 1200 ? 43 : 54,
-              lineHeight: small ? 48 : width < 1200 ? 59 : 72,
+              fontSize: small ? 30 : width < 1200 ? 43 : 54,
+              lineHeight: small ? 41 : width < 1200 ? 59 : 72,
               color: palette.green,
               letterSpacing: -1.3,
             }}
@@ -140,10 +138,10 @@ export function Hero({ onExplore }: { onExplore: () => void }) {
         </View>
         <View
           style={{
-            flex: 1,
+            flex: small ? undefined : 1,
             minWidth: 0,
-            backgroundColor: "#ffffff55",
-            padding: small ? 22 : 36,
+            backgroundColor: slide.bg,
+            padding: small ? 12 : 36,
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -152,7 +150,7 @@ export function Hero({ onExplore }: { onExplore: () => void }) {
             <Image
               accessibilityLabel={product?.name}
               source={{ uri: image }}
-              style={{ width: "100%", height: small ? 230 : 350 }}
+              style={{ width: "100%", height: small ? 185 : 350, mixBlendMode: "darken" } as any}
               resizeMode="contain"
             />
           )}
@@ -185,11 +183,11 @@ export function Hero({ onExplore }: { onExplore: () => void }) {
           {slides.map((s, i) => (
             <Pressable
               key={s.tag}
+              testID="slide-dot"
               accessibilityRole="button"
               accessibilityLabel={`Đến slide ${i + 1}`}
               accessibilityState={{ selected: i === index }}
               onPress={() => {
-                setPaused(true);
                 setIndex(i);
               }}
               style={{
@@ -201,27 +199,7 @@ export function Hero({ onExplore }: { onExplore: () => void }) {
             />
           ))}
         </View>
-        <View style={ui.row}>
-          <Button onPress={() => setPaused(!paused)}>
-            {paused ? "Tiếp tục" : "Tạm dừng"}
-          </Button>
-          <IconButton
-            name="left"
-            label="Slide trước"
-            onPress={() => {
-              setPaused(true);
-              setIndex((index + 2) % slides.length);
-            }}
-          />
-          <IconButton
-            name="right"
-            label="Slide tiếp theo"
-            onPress={() => {
-              setPaused(true);
-              setIndex((index + 1) % slides.length);
-            }}
-          />
-        </View>
+
       </View>
     </Pressable>
   );

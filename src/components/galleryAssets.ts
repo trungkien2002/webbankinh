@@ -1,0 +1,18 @@
+export const galleryAssets: Record<string, { label: string; asset: number }[]> = {
+  'EL0001': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0001-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0001-laydown.jpg') }],
+  'EL0002': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0002-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0002-laydown.jpg') }],
+  'EL0003': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0003-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0003-laydown.jpg') }],
+  'EL0004': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0004-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0004-laydown.jpg') }],
+  'EL0005': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0005-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0005-laydown.jpg') }],
+  'EL0006': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0006-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0006-laydown.jpg') }],
+  'EL0007': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0007-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0007-laydown.jpg') }],
+  'EL0008': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0008-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0008-laydown.jpg') }],
+  'EL0009': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0009-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0009-laydown.jpg') }],
+  'EL0010': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0010-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0010-laydown.jpg') }],
+  'EL0011': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0011-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0011-laydown.jpg') }],
+  'EL0012': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0012-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0012-laydown.jpg') }],
+  'EL0031': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0031-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0031-laydown.jpg') }],
+  'EL0036': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0036-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0036-laydown.jpg') }],
+  'EL0037': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0037-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0037-laydown.jpg') }],
+  'EL0039': [{ label: 'Góc nghiêng', asset: require('../../assets/catalog/EL0039-angle.jpg') }, { label: 'Nhìn từ trên', asset: require('../../assets/catalog/EL0039-laydown.jpg') }],
+};

@@ -4,84 +4,228 @@
     "productUrl": "https://www.eyebobs.com/products/3481-class-act",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3481_00_Class_Act_Front.jpg?v=1778102953",
     "originalVariant": "10 - Denim Blue Outside and Tortoise Inside / Average / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3481_00_Class_Act_Angle.jpg",
+        "asset": "EL0001-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3481_00_Class_Act_Laydown.jpg",
+        "asset": "EL0001-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0002",
     "productUrl": "https://www.eyebobs.com/products/3587-thrifted",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3587_19_Thrifted_Front.jpg?v=1790098264",
     "originalVariant": "19 - Teal Fleck Tortoise Front and Temples / Wide / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3587_19_Thrifted_Angle.jpg",
+        "asset": "EL0002-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3587_19_Thrifted_Laydown.jpg",
+        "asset": "EL0002-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0003",
     "productUrl": "https://www.eyebobs.com/products/3488-strong-opinions",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3488_04_Strong_Opinions_Front.jpg?v=1790098264",
     "originalVariant": "04 - Caramel Demi Front and Temples / Average / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3488_04_Strong_Opinions_Angle.jpg",
+        "asset": "EL0003-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3488_04_Strong_Opinions_Laydown.jpg",
+        "asset": "EL0003-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0004",
     "productUrl": "https://www.eyebobs.com/products/3487-ill-decide",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3487_01_I_ll_Decide_Front.jpg?v=1790098264",
     "originalVariant": "01 - Deep Red Crystal Front and Temples / Wide / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3487_01_I_ll_Decide_Angle.jpg",
+        "asset": "EL0004-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3487_01_I_ll_Decide_Laydown.jpg",
+        "asset": "EL0004-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0005",
     "productUrl": "https://www.eyebobs.com/products/3486-freudian-slip",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3486_17_Freudian_Slip_Front.jpg?v=1790098264",
     "originalVariant": "17 - Olive Green Crystal Front and Temples / Average / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3486_17_Freudian_Slip_Angle.jpg",
+        "asset": "EL0005-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3486_17_Freudian_Slip_Laydown.jpg",
+        "asset": "EL0005-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0006",
     "productUrl": "https://www.eyebobs.com/products/3589-favorite-aunt",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3589_88_Favorite_Aunt_Front.jpg?v=1790098261",
     "originalVariant": "88 - Brown Demi Front and Temples / Average / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3589_88_Favorite_Aunt_Angle.jpg",
+        "asset": "EL0006-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3589_88_Favorite_Aunt_Laydown.jpg",
+        "asset": "EL0006-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0007",
     "productUrl": "https://www.eyebobs.com/products/3588-ahead-of-the-curve",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3588_10_Ahead_Of_The_Curve_Front.jpg?v=1790098264",
     "originalVariant": "10 - Cobalt Crystal Front and Temples / Average / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3588_10_Ahead_Of_The_Curve_Angle.jpg",
+        "asset": "EL0007-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3588_10_Ahead_Of_The_Curve_Laydown.jpg",
+        "asset": "EL0007-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0008",
     "productUrl": "https://www.eyebobs.com/products/3470-golden-age",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3470_00_Golden_Age_Front.jpg?v=1778103372",
     "originalVariant": "17 - Green Apple Crystal Front with Silver Temples / Average / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3470_00_Golden_Age_Angle.jpg",
+        "asset": "EL0008-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3470_00_Golden_Age_Laydown.jpg",
+        "asset": "EL0008-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0009",
     "productUrl": "https://www.eyebobs.com/products/3485-hero-complex",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3485_19_Hero_Complex_Front.jpg?v=1778102973",
     "originalVariant": "19 - Slate Grey Tortoise with Ice Blue Layer / Average / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3485_19_Hero_Complex_Angle.jpg",
+        "asset": "EL0009-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3485_19_Hero_Complex_Laydown.jpg",
+        "asset": "EL0009-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0010",
     "productUrl": "https://www.eyebobs.com/products/3592-totally-tubular",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3592_17_Totally_Tubular_Front.jpg?v=1784907059",
     "originalVariant": "17 - Jade Front and Temples / Average / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3592_17_Totally_Tubular_Angle.jpg",
+        "asset": "EL0010-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3592_17_Totally_Tubular_Laydown.jpg",
+        "asset": "EL0010-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0011",
     "productUrl": "https://www.eyebobs.com/products/3591-so-decisive",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3591_19_So_Decisive_Front.jpg?v=1784907059",
     "originalVariant": "19 - Tortoise Front and Temples / Average / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3591_19_So_Decisive_Angle.jpg",
+        "asset": "EL0011-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3591_19_So_Decisive_Laydown.jpg",
+        "asset": "EL0011-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0012",
     "productUrl": "https://www.eyebobs.com/products/3590-holy-smokes",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3590_18_Holy_Smokes_Front.jpg?v=1784907057",
     "originalVariant": "18 - Iceberg Spotted Brown Tortoise Front and Temples / Average / Readers / 0.00",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3590_18_Holy_Smokes_Angle.jpg",
+        "asset": "EL0012-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3590_18_Holy_Smokes_Laydown.jpg",
+        "asset": "EL0012-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0013",
@@ -214,7 +358,19 @@
     "productUrl": "https://www.eyebobs.com/products/3345-wisecracker-sunglasses",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3345_10_Wisecracker_Front_Polarized_Grey.jpg?v=1778103136",
     "originalVariant": "10 - Blue Multi-Stripe Front with Navy Temples / Average / Full Lens Reader Sunglasses / 1.00 / .",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3345_10_Wisecracker_Angle_Polarized_Grey.jpg",
+        "asset": "EL0031-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3345_10_Wisecracker_Laydown_Polarized_Grey.jpg",
+        "asset": "EL0031-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0032",
@@ -249,14 +405,38 @@
     "productUrl": "https://www.eyebobs.com/products/3475-well-done-sunglasses",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3475_45_Well_Done_Front_Polarized_Grey.jpg?v=1778103245",
     "originalVariant": "45 - Rouge Pink Crystal Front and Temples / Wide / Full Lens Reader Sunglasses / 1.00 / .",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3475_45_Well_Done_Angle_Polarized_Grey.jpg",
+        "asset": "EL0036-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3475_45_Well_Done_Laydown_Polarized_Grey.jpg",
+        "asset": "EL0036-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0037",
     "productUrl": "https://www.eyebobs.com/products/2231-waylaid-sunglasses",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/2231_04_Waylaid_Front_Polarized_Grey.jpg?v=1778103615",
     "originalVariant": "04 - Caramel Tortoise Front and Temples / Average / Full Lens Reader Sunglasses / 1.00 / .",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/2231_04_Waylaid_Angle_Polarized_Grey.jpg",
+        "asset": "EL0037-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/2231_04_Waylaid_Laydown_Polarized_Grey.jpg",
+        "asset": "EL0037-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0038",
@@ -270,7 +450,19 @@
     "productUrl": "https://www.eyebobs.com/products/3374-unarticulated-sunglasses",
     "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3374_10_Unarticulated_Front_Polarized_Grey.jpg?v=1778102917",
     "originalVariant": "10 - Delicate, Pale Blues Accentuated By a Stainless Steel Temple / Wide / Full Lens Reader Sunglasses / 1.00 / .",
-    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng"
+    "pricePolicy": "Giá bán nội bộ Élan, không phải giá niêm yết của hãng",
+    "gallery": [
+      {
+        "label": "Góc nghiêng",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3374_10_Unarticulated_Angle_Polarized_Grey.jpg",
+        "asset": "EL0039-angle.jpg"
+      },
+      {
+        "label": "Nhìn từ trên",
+        "imageUrl": "https://cdn.shopify.com/s/files/1/0243/3862/8688/files/3374_10_Unarticulated_Laydown_Polarized_Grey.jpg",
+        "asset": "EL0039-laydown.jpg"
+      }
+    ]
   },
   {
     "sku": "EL0040",

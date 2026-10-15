@@ -1,3 +1,4 @@
+import { deleteUnpaidInvoice } from './bao-service';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from './database';
 import { categoryDetail, completeDraft, createDraft, createVoucher, customerList, editCategory, editEmployee, invoiceDetail, saveDraftItems, saveMeasurement, setDraftCustomer } from './bao-service';
@@ -27,6 +28,21 @@ describe('LSP003/LSP007 — shared categories', () => {
   });
 });
 describe('BH001/BH005/HD003/KH003 — draft to payment', () => {
+  it('removes an emptied editable order and preserves other invoices and stock', () => {
+    const draft = createDraft('USR001');
+    const other = createDraft('USR001');
+    const stock = db.products[0].stock;
+    saveDraftItems('USR001', draft.id, { PRD001: 1 });
+    saveDraftItems('USR001', draft.id, {});
+    expect(db.invoices.some(i => i.id === draft.id)).toBe(false);
+    expect(db.invoices.some(i => i.id === other.id)).toBe(true);
+    expect(db.products[0].stock).toBe(stock);
+    expect(JSON.parse(store.get('webbankinh_db')!).invoices.some((i: {id:string}) => i.id === draft.id)).toBe(false);
+    saveDraftItems('USR001', other.id, { PRD001: 1 });
+    completeDraft('USR001', other.id, true, 'cash');
+    expect(() => saveDraftItems('USR001', other.id, {})).toThrow();
+    expect(db.invoices.find(i => i.id === other.id)?.paymentStatus).toBe('paid');
+  });
   it('creates distinct draft codes, zero totals, no revenue/stock mutation', () => {
     const first = createDraft('USR001'); const second = createDraft('USR001');
     expect(first.invoiceCode).not.toBe(second.invoiceCode); expect(first.id).not.toBe(second.id);
@@ -110,6 +126,15 @@ describe('VC001/NV002 — admin changes', () => {
   });
 });
 describe('DN003 — local OTP and session invalidation', () => {
+  it('migrates only the admin fixture and preserves a later password reset', async () => {
+    await expect(loginDemo('admin@example.com', 'Demo@123')).rejects.toThrow();
+    await expect(loginDemo('b', 'b')).resolves.toMatchObject({ id: 'USR001' });
+    await expect(loginDemo('hoan@example.com', 'Demo@123')).resolves.toMatchObject({ id: 'USR002' });
+    const reset = requestPasswordReset('admin@example.com');
+    await confirmPasswordReset(reset.challengeId, reset.demoCode, 'NewPass123');
+    await expect(loginDemo('b', 'b')).rejects.toThrow();
+    await expect(loginDemo('admin@example.com', 'NewPass123')).resolves.toMatchObject({ id: 'USR001' });
+  });
   it('returns same request shape for known/unknown email, rate-limits and expires codes', async () => {
     const known = requestPasswordReset('admin@example.com', 1000);
     const unknown = requestPasswordReset('nobody@example.com', 1000);
@@ -118,11 +143,11 @@ describe('DN003 — local OTP and session invalidation', () => {
     await expect(confirmPasswordReset(known.challengeId, known.demoCode, 'NewPass123', 301001)).rejects.toThrow(/hết hạn/);
   });
   it('invalidates old sessions/password, consumes one time and supports reload of challenge', async () => {
-    await loginDemo('admin@example.com', 'Demo@123'); expect(getDemoSession()?.id).toBe('USR001');
+    await loginDemo('b', 'b'); expect(getDemoSession()?.id).toBe('USR001');
     const reset = requestPasswordReset('admin@example.com');
     await confirmPasswordReset(reset.challengeId, reset.demoCode, 'NewPass123');
     expect(getDemoSession()).toBeNull();
-    await expect(loginDemo('admin@example.com', 'Demo@123')).rejects.toThrow();
+    await expect(loginDemo('b', 'b')).rejects.toThrow();
     await expect(loginDemo('admin@example.com', 'NewPass123')).resolves.toMatchObject({ id: 'USR001' });
     await expect(confirmPasswordReset(reset.challengeId, reset.demoCode, 'OtherPass123')).rejects.toThrow();
   });
@@ -135,4 +160,18 @@ describe('DN003 — local OTP and session invalidation', () => {
     await adminResetPassword('USR001', 'EMP002', 'NewPass123');
     await expect(loginDemo('hoan@example.com', 'NewPass123')).resolves.toMatchObject({ id: 'USR002' });
   });
+});
+
+it('deletes draft and pending invoices but rejects a paid invoice and invalid actor', () => {
+  const draft=createDraft('USR001');
+  expect(()=>deleteUnpaidInvoice('missing',draft.id)).toThrow();
+  deleteUnpaidInvoice('USR001',draft.id);
+  expect(db.invoices.find(i=>i.id===draft.id)).toBeUndefined();
+  const pending=createDraft('USR001');saveDraftItems('USR001',pending.id,{PRD001:1});completeDraft('USR001',pending.id,false,'cash');
+  const stock=db.products[0].stock;deleteUnpaidInvoice('USR001',pending.id);
+  expect(db.products[0].stock).toBe(stock);
+  expect(db.invoices.find(i=>i.id===pending.id)).toBeUndefined();
+  const paid=createDraft('USR001');saveDraftItems('USR001',paid.id,{PRD001:1});completeDraft('USR001',paid.id,true,'cash');
+  expect(()=>deleteUnpaidInvoice('USR001',paid.id)).toThrow(/đã thanh toán/);
+  expect(db.invoices.find(i=>i.id===paid.id)?.paymentStatus).toBe('paid');
 });

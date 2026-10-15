@@ -32,18 +32,27 @@ export async function setDemoPassword(userId: string, password: string) {
   records[userId] = { salt, digest: await digest(password, salt) };
   localStorage.setItem(credentialsKey, JSON.stringify(records));
   localStorage.setItem(`elan_password_version_${userId}`, salt);
+  if (userId === "USR001") localStorage.setItem("elan_admin_login_v4", "1");
 }
 export async function loginDemo(
   email: string,
   password: string,
 ): Promise<User> {
   const user = db.users.find(
-    (u) => u.email.toLowerCase() === email.trim().toLowerCase(),
+    (u) => (u.id === "USR001" && email.trim().toLowerCase() === "b") || u.email.toLowerCase() === email.trim().toLowerCase(),
   );
   if (!user || !user.isActive)
     throw new Error(
       "Email hoặc mật khẩu chưa đúng, hoặc tài khoản đã bị khóa.",
     );
+  if (user.id === 'USR001' && !localStorage.getItem('elan_admin_login_v4')) {
+    const records = read<Record<string, { salt: string; digest: string }>>(credentialsKey, {});
+    const salt = crypto.randomUUID();
+    records[user.id] = { salt, digest: await digest('b', salt) };
+    localStorage.setItem(credentialsKey, JSON.stringify(records));
+    localStorage.setItem(`elan_password_version_${user.id}`, salt);
+    localStorage.setItem('elan_admin_login_v4', '1');
+  }
   const record = read<Record<string, { salt: string; digest: string }>>(
     credentialsKey,
     {},

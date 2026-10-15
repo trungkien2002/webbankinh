@@ -1,3 +1,11 @@
+import { deleteUnpaidInvoice } from '../services/bao-service';
+import { Toast } from '../components/toast';
+import { SearchPicker } from '../components/searchPicker';
+import { MemberDashboard } from "../components/memberDashboard";
+import { preparePresentationData } from "../services/presentationData";
+import { customerSession } from "../services/customerAccount";
+import { ImageUpload } from "../components/imageUpload";
+import { Storefront } from "../components/storefront";
 import { Hero } from "../components/hero";
 import { IconButton } from "../components/icons";
 import { catalogImage } from "../components/catalogAssets";
@@ -53,6 +61,12 @@ const titles = [
   "Khách hàng",
   "Nhân viên",
 ];
+function shoppingCart(): Record<string, number> {
+  try {
+    const raw = JSON.parse(localStorage.getItem('elan_shopping_cart') || '{}');
+    return Object.fromEntries(Object.entries(raw).filter(([id, quantity]) => db.products.some(p => p.id === id && !p.isDeleted) && Number.isInteger(quantity) && Number(quantity) > 0).map(([id, quantity]) => [id, Number(quantity)]));
+  } catch { return {}; }
+}
 function restoredDraft() {
   const session = getDemoSession();
   const employee = db.employees.find(e => e.userId === session?.id);
@@ -65,27 +79,35 @@ function ProductThumbnail({ product, index, height = 50, width = 100 }: { produc
 }
 export function WebApp() {
   const { width } = useWindowDimensions();
-  const small = width < 850;
+  const small = width < 1000;
+  const [navOpen, setNavOpen] = useState(false);
+  const [catalogWidth, setCatalogWidth] = useState(500);
   useState(() => {
     prepareDemoCatalog();
+    preparePresentationData();
     return true;
   });
-  const [page, setPage] = useState<"store" | "login" | "admin">("store");
+  const [page, setPage] = useState<"store" | "login" | "admin">(() => window.location.hash.startsWith("#/admin") ? getDemoSession() ? "admin" : "login" : "store");
+  useEffect(() => { const route = () => { if (window.location.hash.startsWith('#/admin')) { const session = getDemoSession(); setUser(session); setPage(session ? 'admin' : 'login'); } }; window.addEventListener('hashchange', route); return () => window.removeEventListener('hashchange', route); }, []);
   const [user, setUser] = useState<User | null>(getDemoSession);
   const [section, setSection] = useState("Tổng quan");
   const [revision, refresh] = useState(0);
   const [productPage, setProductPage] = useState(1);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
-  const [cart, setCart] = useState<Record<string, number>>(() => Object.fromEntries((restoredDraft()?.items || []).map(i => [i.productId, i.quantity])));
+  const [cart, setCart] = useState<Record<string, number>>(shoppingCart);
   const [draftId, setDraftId] = useState(restoredDraft()?.id || '');
+  useEffect(() => {
+    if (page === 'store') { setCart(shoppingCart()); setVoucher(''); }
+    if (page === 'admin') { const draft = restoredDraft(); setCart(Object.fromEntries((draft?.items || []).map(i => [i.productId, i.quantity]))); setDraftId(draft?.id || ''); setVoucher(draft?.voucherCode || ''); }
+  }, [page]);
   const newDraftLock = useRef(false);
   const [baoDialog, setBaoDialog] = useState<{ action: BaoAction; id?: string } | null>(null);
   const [detail, setDetail] = useState<Product | null>(null);
   const [modal, setModal] = useState("");
   const [notice, setNotice] = useState("");
   const [form, setForm] = useState<Record<string, string>>({});
-  const [email, setEmail] = useState("admin@example.com");
+  const [email, setEmail] = useState("b");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [voucher, setVoucher] = useState(restoredDraft()?.voucherCode || '');
@@ -112,11 +134,11 @@ export function WebApp() {
     }, 1500);
     return () => clearInterval(timer);
   }, [user]);
-  const totalPages = Math.max(1, Math.ceil(products.length / 12));
+  const totalPages = Math.max(1, Math.ceil(products.length / (section === "Bán hàng tại quầy" ? 6 : 12)));
   const currentPage = Math.min(productPage, totalPages);
   const visibleProducts = products.slice(
-    (currentPage - 1) * 12,
-    currentPage * 12,
+    (currentPage - 1) * (section === "Bán hàng tại quầy" ? 6 : 12),
+    currentPage * (section === "Bán hàng tại quầy" ? 6 : 12),
   );
   const items: InvoiceItem[] = Object.entries(cart).flatMap(
     ([id, quantity]) => {
@@ -145,11 +167,15 @@ export function WebApp() {
   const changeCart = (next: Record<string, number>) => {
     try {
       if (page === 'admin') {
+        if (!activeDraft && !Object.keys(next).length) return;
         const draft = activeDraft || createDraft(user!.id);
         saveDraftItems(user!.id, draft.id, next);
-        if (!activeDraft && customer) setDraftCustomer(user!.id, draft.id, customer);
-        setDraftId(draft.id);
+        if (Object.keys(next).length) {
+          if (!activeDraft && customer) setDraftCustomer(user!.id, draft.id, customer);
+          setDraftId(draft.id);
+        } else { setDraftId(''); setCustomer(''); setVoucher(''); }
       }
+      if (page === 'store') localStorage.setItem('elan_shopping_cart', JSON.stringify(next));
       setCart(next); setNotice(''); refresh(v => v + 1);
     } catch (e) { setNotice((e as Error).message); }
   };
@@ -184,6 +210,7 @@ export function WebApp() {
     setModal(name);
   };
   const navigate = (name: string) => {
+    setNavOpen(false);
     setSection(name);
     setQuery("");
     setCategory("");
@@ -213,7 +240,7 @@ export function WebApp() {
       setNotice("Vui lòng nhập tên và số điện thoại từ 9 đến 11 chữ số.");
       return;
     }
-    const client = db.customers.find((c) => c.id === customer);
+    const client = page === "store" ? customerSession() : db.customers.find((c) => c.id === customer);
     const employee = db.employees.find((e) => e.userId === user?.id);
     const result = invoiceService.holdPendingInvoice({
       items,
@@ -243,6 +270,7 @@ export function WebApp() {
         return;
       }
     }
+    if (page === "store") localStorage.removeItem("elan_shopping_cart");
     setCart({});
     setVoucher("");
     setModal("");
@@ -258,8 +286,8 @@ export function WebApp() {
         form.name || "",
         form.description || "",
       );
-    else if (modal === "Thêm sản phẩm")
-      result = productService.createProduct({
+    else if (["Thêm sản phẩm", "Sửa sản phẩm"].includes(modal))
+      result = (modal === "Sửa sản phẩm" ? (input: Parameters<typeof productService.createProduct>[0]) => productService.updateProduct(form.id,input) : (input: Parameters<typeof productService.createProduct>[0]) => productService.createProduct(input))({
         sku: form.sku || "",
         name: form.name || "",
         categoryId: form.categoryId || "",
@@ -303,7 +331,8 @@ export function WebApp() {
             },
           ]}
         >
-          <View style={{ flex: 1 }}>
+          <Image source={{ uri: art(db.products.find(v => v.id === item.productId)!) }} resizeMode="contain" style={{width:64,height:52,borderRadius:7,backgroundColor:"#e9e9e9"}} />
+          <View style={{ flex: 1, minWidth:100 }}>
             <Text style={ui.label}>{item.productName}</Text>
             <Text style={ui.muted}>{money(item.unitPrice)}</Text>
           </View>
@@ -360,7 +389,7 @@ export function WebApp() {
         </>
       ) : (
         <>
-          <Choice
+          <SearchPicker
             label="Khách hàng"
             value={customer}
             onChange={value => {
@@ -371,7 +400,7 @@ export function WebApp() {
             }}
             options={[
               { label: "Khách vãng lai", value: "" },
-              ...db.customers.map((c) => ({ label: c.fullName, value: c.id })),
+              ...db.customers.map((c) => ({ label: c.fullName + " · " + c.phone, value: c.id, search: c.customerCode })),
             ]}
           />
           <Button disabled={!activeDraft} onPress={() => setBaoDialog({ action: 'measurement', id: activeDraft?.id })}>Khách hàng / thông số đo mắt</Button>
@@ -404,21 +433,14 @@ export function WebApp() {
   const productCards = (
     <>
       {" "}
-      <View style={[ui.row, { alignItems: "stretch", gap: 22 }]}>
-        {visibleProducts.map((product, i) => (
+      <View style={[ui.row, { alignItems: "stretch", gap: 14 }]}>
+        {visibleProducts.slice(0, section === "Bán hàng tại quầy" ? 6 : 12).map((product, i) => (
           <View
             key={product.id}
             testID="product-card"
             style={{
-              width:
-                width >= 1280
-                  ? "23%"
-                  : width >= 850
-                    ? "31%"
-                    : width >= 600
-                      ? "47%"
-                      : "100%",
-              minWidth: 200,
+              width: catalogWidth >= 850 ? "31%" : catalogWidth >= 340 ? "47%" : "100%",
+              minWidth: 0,
               flexGrow: 0,
               backgroundColor: "#fff",
               borderWidth: 1,
@@ -435,24 +457,24 @@ export function WebApp() {
                 setDetail(product);
               }}
             >
-              <ProductThumbnail product={product} index={i} height={210} width="100%" />
+              <View style={{ backgroundColor: "#e9e9e9" }}><ProductThumbnail product={product} index={i} height={120} width="100%" /></View>
             </Pressable>
-            <View style={{ padding: 20 }}>
+            <View style={{ padding: 16, flex: 1 }}>
               <Text
                 style={[
                   ui.muted,
-                  { fontSize: 10, letterSpacing: 2, marginBottom: 8 },
+                  { fontSize: 10, letterSpacing: 1, marginBottom: 6, minHeight: 20 },
                 ]}
               >
                 {product.brand || "ÉLAN"} / {product.productType}
               </Text>
-              <Text style={ui.h2}>
+              <Text numberOfLines={2} style={[ui.h2, { fontSize: 15, lineHeight: 21, minHeight: 42 }]}>
                 {product.name.replace("Gọng kính ", "")}
               </Text>
               <View
                 style={[
                   ui.row,
-                  { justifyContent: "space-between", marginTop: 18 },
+                  { justifyContent: "space-between", marginTop: "auto", paddingTop: 16 },
                 ]}
               >
                 <Text style={ui.label}>{money(product.price)}</Text>
@@ -470,21 +492,9 @@ export function WebApp() {
           { justifyContent: "center", marginTop: 24, marginBottom: 16 },
         ]}
       >
-        <Button
-          disabled={currentPage === 1}
-          onPress={() => setProductPage(currentPage - 1)}
-        >
-          Trang trước
-        </Button>
-        <Text style={ui.muted}>
-          Trang {currentPage} / {totalPages} · {products.length} sản phẩm
-        </Text>
-        <Button
-          disabled={currentPage === totalPages}
-          onPress={() => setProductPage(currentPage + 1)}
-        >
-          Trang sau
-        </Button>
+        <Button disabled={currentPage === 1} onPress={() => setProductPage(currentPage - 1)}>‹</Button>
+        {Array.from({ length: totalPages }, (_, i) => <Button key={i} primary={i + 1 === currentPage} onPress={() => setProductPage(i + 1)}>{i + 1}</Button>)}
+        <Button disabled={currentPage === totalPages} onPress={() => setProductPage(currentPage + 1)}>›</Button>
       </View>
     </>
   );
@@ -499,37 +509,38 @@ export function WebApp() {
         >
           <View
             style={{
-              flex: 1,
-              backgroundColor: p.green,
-              padding: small ? 30 : 70,
+              flex: small ? undefined : 1,
+              backgroundColor: "#e9e9e9",
+              minHeight: small ? 240 : undefined,
+              padding: small ? 24 : 40,
               justifyContent: "center",
             }}
           >
-            <Text style={{ color: "#fff", fontSize: 22, letterSpacing: 5 }}>
+            <Text style={{ color: p.green, fontSize: 22, letterSpacing: 5 }}>
               ÉLAN / STUDIO
             </Text>
             <Text
               style={{
-                color: "#f5eedc",
-                fontSize: small ? 40 : 66,
-                lineHeight: small ? 48 : 76,
-                marginTop: 65,
+                color: p.green,
+                fontSize: small ? 28 : width < 1200 ? 38 : 48,
+                lineHeight: small ? 39 : 58,
+                marginTop: small ? 15 : 35,
               }}
             >
-              Một góc nhìn mới.{"\n"}Một ngày rất bạn.
+              Một góc nhìn mới.{"\n"}Tự tin trong từng ánh nhìn.
             </Text>
-            <Image
+            {!small && <Image
               source={{ uri: art(db.products.find(p => p.sku === "EL0021")) }}
-              style={{ height: 200, width: "100%", marginVertical: 30 }}
-            />
-            <Text style={{ color: "#d1dacb", lineHeight: 25 }}>
+              style={{ height: 180, width: "100%", marginVertical: 25, mixBlendMode: "darken" } as any}
+            />}
+            <Text style={{ color: p.muted, lineHeight: 25 }}>
               Không gian làm việc dành cho đội ngũ cửa hàng Élan.
             </Text>
           </View>
           <View
             style={{
-              flex: 1,
-              padding: small ? 28 : 70,
+              flex: small ? undefined : 1,
+              padding: small ? 24 : 40,
               justifyContent: "center",
             }}
           >
@@ -538,14 +549,14 @@ export function WebApp() {
               <Text style={[ui.muted, { marginBottom: 35 }]}>
                 Đăng nhập để quản lý cửa hàng của bạn.
               </Text>
-              <Field label="Email" value={email} onChange={setEmail} />
+              <Field label="Tài khoản" value={email} onChange={setEmail} />
               <Field
                 label="Mật khẩu"
                 value={password}
                 onChange={setPassword}
                 secure
               />
-              <Text style={ui.error}>{notice}</Text>
+
               <Button
                 primary
                 disabled={busy}
@@ -570,7 +581,7 @@ export function WebApp() {
               <Button onPress={() => setBaoDialog({ action: 'password-reset' })}>Quên mật khẩu</Button>
               <Button
                 onPress={() => {
-                  setPage("store");
+                  setPage("store"); window.location.hash = "/";
                   setNotice("");
                 }}
               >
@@ -580,174 +591,14 @@ export function WebApp() {
           </View>
         </ScrollView>
       ) : page === "store" ? (
-        <ScrollView>
-          <View style={{ backgroundColor: p.green, padding: 10 }}>
-            <Text
-              style={{
-                color: "#e5e8d8",
-                textAlign: "center",
-                fontSize: 11,
-                letterSpacing: 2,
-              }}
-            >
-              TÌM THẤY GÓC NHÌN CỦA RIÊNG BẠN
-            </Text>
-          </View>
-          <View
-            style={[
-              ui.row,
-              {
-                padding: small ? 20 : 32,
-                justifyContent: "space-between",
-                borderBottomWidth: 1,
-                borderColor: p.line,
-              },
-            ]}
-          >
-            <Text
-              style={{
-                fontSize: 25,
-                fontWeight: "700",
-                letterSpacing: 4,
-                color: p.green,
-              }}
-            >
-              ÉLAN / STUDIO
-            </Text>
-            <View style={ui.row}>
-              <IconButton
-                name="grid"
-                label="Bộ sưu tập"
-                onPress={() => {
-                  setCategory("");
-                  setQuery("");
-                  setModal("catalog");
-                }}
-              />
-              <IconButton
-                name="bag"
-                label="Giỏ hàng"
-                count={items.reduce((n, v) => n + v.quantity, 0)}
-                onPress={() => {
-                  setModal("cart");
-                  setNotice("");
-                }}
-              />
-              <IconButton
-                name="user"
-                label="Quản lý cửa hàng"
-                onPress={() => {
-                  setPage(user ? "admin" : "login");
-                  setNotice("");
-                }}
-              />
-            </View>
-          </View>
-          <View
-            style={{
-              maxWidth: 1280,
-              width: "100%",
-              alignSelf: "center",
-              padding: small ? 20 : 40,
-            }}
-          >
-            <Hero onExplore={() => setModal("catalog")} />
-            <View
-              style={[
-                ui.row,
-                {
-                  justifyContent: "space-around",
-                  paddingVertical: 30,
-                  borderBottomWidth: 1,
-                  borderColor: p.line,
-                },
-              ]}
-            >
-              {[
-                "Thiết kế tinh giản",
-                "Tròng kính theo độ đo",
-                "Tư vấn chọn kính",
-                "Chăm sóc sau mua",
-              ].map((t) => (
-                <Text key={t} style={ui.muted}>
-                  ✦ {t}
-                </Text>
-              ))}
-            </View>
-            <View style={{ marginTop: 45, marginBottom: 26 }}>
-              <Text
-                style={{
-                  letterSpacing: 2,
-                  fontSize: 11,
-                  color: p.muted,
-                  marginBottom: 10,
-                }}
-              >
-                CURATED FOR YOU
-              </Text>
-              <Text style={[ui.h1, { fontFamily: "ElanSans", fontSize: 38 }]}>
-                Chiếc kính dành cho bạn.
-              </Text>
-              <Text style={ui.muted}>
-                Chọn kiểu dáng yêu thích và khám phá từng chi tiết.
-              </Text>
-            </View>
-            <Choice
-              value={category}
-              onChange={setCategory}
-              options={[
-                { label: "Tất cả", value: "" },
-                ...db.categories
-                  .filter((c) => !c.isDeleted)
-                  .map((c) => ({ label: c.name, value: c.id })),
-              ]}
-            />
-            <Field
-              label="Tìm sản phẩm"
-              value={query}
-              onChange={setQuery}
-              placeholder="Tên kính, mã sản phẩm…"
-            />
-            {productCards}
-            <View
-              style={{
-                backgroundColor: p.green,
-                borderRadius: 12,
-                padding: small ? 28 : 45,
-                marginTop: 55,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 32,
-                  color: "#f4f0df",
-                  fontFamily: "ElanSans",
-                }}
-              >
-                Một chiếc kính tốt bắt đầu từ sự vừa vặn.
-              </Text>
-              <Text style={{ color: "#d3ddcc", lineHeight: 24, marginTop: 15 }}>
-                Chọn gọng theo phong cách, chọn tròng theo nhu cầu. Đội ngũ Élan
-                luôn sẵn sàng tư vấn cùng bạn.
-              </Text>
-            </View>
-          </View>
-          <View style={{ padding: 35, borderTopWidth: 1, borderColor: p.line }}>
-            <Text style={[ui.h2, { letterSpacing: 4 }]}>ÉLAN / STUDIO</Text>
-            <Text style={[ui.muted, { marginTop: 12 }]}>
-              Eyewear for everyday living. • Gọng kính / Tròng kính / Kính râm
-              {"\n"}128 Đường Ánh Dương, Phường Bình An, TP. Hồ Chí Minh{"\n"}Mở
-              cửa 09:00 – 21:00 hằng ngày · contact@elaneyewear.vn
-            </Text>
-          </View>
-        </ScrollView>
+        <Storefront cartProps={{ items, quantity: (id, value) => { const product = db.products.find(p => p.id === id); if (!product || value > product.stock) { setNotice("Số lượng đã đạt tồn kho."); return; } const next = { ...cart }; if (value <= 0) delete next[id]; else next[id] = value; changeCart(next); }, voucher, setVoucher, discount: discountAmount, voucherError: voucher && !discount?.success ? discount?.error : undefined, form, setForm, order: () => submitOrder(false) }} items={items} add={add} cartContent={cartContent} notice={notice} admin={() => { setPage(user ? "admin" : "login"); setNotice(""); }} />
       ) : (
         <View style={{ flex: 1, flexDirection: small ? "column" : "row" }}>
           <View
             style={{
               width: small ? "100%" : 225,
               backgroundColor: "#eaf0e7",
-              padding: 22,
+              padding: small ? 16 : 22,
               borderRightWidth: 1,
               borderColor: p.line,
             }}
@@ -763,7 +614,8 @@ export function WebApp() {
             >
               ÉLAN / STUDIO
             </Text>
-            <ScrollView horizontal={small}>
+            {small && <Button onPress={() => setNavOpen(v => !v)}>{navOpen ? "Đóng menu" : "Menu quản lý"}</Button>}
+            {(!small || navOpen) && <ScrollView horizontal={false} style={{ maxHeight: small ? 290 : undefined }}>
               {titles
                 .filter(
                   (t) =>
@@ -811,18 +663,18 @@ export function WebApp() {
                     </Pressable>
                   </View>
                 ))}
-            </ScrollView>
-            <Button
+            </ScrollView>}
+            {!small && <Button
               onPress={() => {
-                setPage("store");
+                setPage("store"); window.location.hash = "/";
                 setQuery("");
                 setCategory("");
               }}
             >
               ← Xem cửa hàng
-            </Button>
+            </Button>}
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <View
               style={[
                 ui.row,
@@ -836,16 +688,17 @@ export function WebApp() {
               ]}
             >
               <Text style={ui.muted}>Élan Eyewear / Quản lý cửa hàng</Text>
-              <View style={ui.row}>
+              <View style={[ui.row, { width: small ? "100%" : undefined, flexShrink: 1 }]}>
                 <Text style={ui.label}>
                   {user?.username} ·{" "}
                   {user?.role === "admin" ? "Quản trị viên" : "Nhân viên"}
                 </Text>
+                {small && <Button onPress={() => { setPage("store"); window.location.hash = "/"; }}>Xem cửa hàng</Button>}
                 <Button
                   onPress={() => {
                     logoutDemo();
                     setUser(null);
-                    setPage("store");
+                    setPage("store"); window.location.hash = "/";
                     setNotice("");
                   }}
                 >
@@ -886,10 +739,10 @@ export function WebApp() {
                     ].map(([label, value]) => (
                       <View
                         key={label}
-                        style={[ui.card, { flex: 1, minWidth: 170 }]}
+                        style={[ui.card, { flexGrow: 1, flexBasis: width < 1300 ? "46%" : "22%", minWidth: 0, minHeight: 130 }]}
                       >
                         <Text style={ui.muted}>{label}</Text>
-                        <Text style={[ui.h1, { marginTop: 15 }]}>{value}</Text>
+                        <Text numberOfLines={1} adjustsFontSizeToFit style={[ui.h1, { marginTop: 15, fontSize: width < 600 ? 23 : 27 }]}>{value}</Text>
                       </View>
                     ))}
                   </View>
@@ -913,16 +766,21 @@ export function WebApp() {
                   </View>
                 </>
               ) : section === "Bán hàng tại quầy" ? (
-                <View style={[ui.row, { alignItems: "flex-start" }]}>
-                  <View style={{ flex: 2, minWidth: 280 }}>
+                <View style={{ flexDirection: width < 1000 ? "column" : "row", alignItems: "flex-start", gap: 24 }}>
+                  <View onLayout={e => setCatalogWidth(e.nativeEvent.layout.width)} style={{ flex: width < 1000 ? undefined : 1, width: width < 1000 ? "100%" : undefined, minWidth: 0 }}>
                     <Field
                       label="Tìm kính tại quầy"
                       value={query}
                       onChange={setQuery}
                     />
+                    <View style={{flexDirection:'row',flexWrap:'wrap',gap:12,marginBottom:14}}>
+                      <View style={{flex:1,minWidth:140}}><Text style={ui.label}>Phân loại</Text><select aria-label="Lọc phân loại tại quầy" value={category} onChange={e=>setCategory(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="">Tất cả</option>{db.categories.filter(c=>!c.isDeleted).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></View>
+                      <View style={{flex:1,minWidth:120}}><Text style={ui.label}>Tồn kho</Text><select aria-label="Lọc tồn kho tại quầy" value={stockFilter} onChange={e=>setStockFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="all">Tất cả</option><option value="available">Còn hàng</option><option value="empty">Hết hàng</option></select></View>
+                      <View style={{flex:1,minWidth:130}}><Text style={ui.label}>Sắp xếp</Text><select aria-label="Sắp xếp tại quầy" value={sort} onChange={e=>setSort(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="name">Tên A–Z</option><option value="price-asc">Giá tăng</option><option value="price-desc">Giá giảm</option></select></View>
+                    </View>
                     {productCards}
                   </View>
-                  <View style={[ui.card, { flex: 1, minWidth: 300 }]}>
+                  <View style={[ui.card, { width: width < 1000 ? "100%" : width < 1300 ? 360 : 410, minWidth: 0 }]}>
                     <Text style={[ui.h2, { marginBottom: 18 }]}>
                       {activeDraft?.invoiceCode || 'Đơn hàng hiện tại'}
                     </Text>
@@ -984,16 +842,15 @@ export function WebApp() {
                     <Choice label="Sắp xếp" value={sort} onChange={setSort} options={[{ label: 'Tên', value: 'name' }, { label: 'Giá tăng', value: 'price-asc' }, { label: 'Giá giảm', value: 'price-desc' }]} />
                     <Table
                       key={`${query}-${stockFilter}-${sort}`}
-                      headings={["Sản phẩm", "Giá bán", "Tồn kho", "Phân loại"]}
+                      headings={["Sản phẩm", "Giá bán", "Tồn kho", "Phân loại", "Thao tác"]}
                       rows={products.map((v, i) => [
-                        <Pressable onPress={() => setDetail(v)}>
-                          <ProductThumbnail product={v} index={i} />
-                          <Text style={ui.label}>{v.name}</Text>
-                          <Text style={ui.muted}>{v.sku}</Text>
+                        <Pressable onPress={() => setDetail(v)} style={{ flexDirection: 'row', gap: 12, alignItems: 'center', minWidth: 0 }}>
+                          <View style={{ width: 76, height: 64, backgroundColor: '#e9e9e9', borderRadius: 8, overflow: 'hidden' }}><ProductThumbnail product={v} index={i} width={76} height={64} /></View>
+                          <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={2} style={[ui.label, { lineHeight: 21 }]}>{v.name}</Text><Text style={ui.muted}>{v.sku}</Text></View>
                         </Pressable>,
                         money(v.price),
                         `${v.stock} · ${v.stock > 0 ? 'Còn hàng' : 'Hết hàng'}`,
-                        db.categories.find(c => c.id === v.categoryId)?.name || v.productType,
+                        db.categories.find(c => c.id === v.categoryId)?.name || v.productType,                        <View style={ui.row}><Button onPress={() => setDetail(v)}>Chi tiết</Button>{user?.role==='admin'&&<><Button onPress={()=>{setForm({id:v.id,sku:v.sku,name:v.name,categoryId:v.categoryId,productType:v.productType,price:String(v.price),stock:String(v.stock),brand:v.brand||'',imageUrl:v.imageUrl||''});setModal('Sửa sản phẩm');}}>Sửa</Button><Button onPress={()=>{setForm({id:v.id,name:v.name});setModal('Xóa sản phẩm');}}>Xóa</Button></>}</View>,
                       ])}
                     /></>
                   ) : section === "Phân loại kính" ? (
@@ -1084,6 +941,7 @@ export function WebApp() {
                                 setDraftId(v.id); setCart(Object.fromEntries(v.items.map(i => [i.productId, i.quantity])));
                                 setCustomer(v.customerId || ''); setVoucher(v.voucherCode || ''); setSection('Bán hàng tại quầy');
                               }}>Mở tại quầy</Button>}
+                              {v.paymentStatus !== "paid" && <Button onPress={() => { setForm({id:v.id}); setModal("Xóa hóa đơn"); }}>Xóa</Button>}
                               {v.paymentStatus === "pending" && (
                                 <Button
                                   onPress={() => {
@@ -1202,25 +1060,7 @@ export function WebApp() {
         setBaoDialog(null); refresh(v => v + 1); setNotice('Đã lưu dữ liệu cục bộ.');
         const current = db.invoices.find(i => i.id === draftId); if (current) setCustomer(current.customerId || '');
       }} />}
-      {!!notice && !modal && !baoDialog && (
-        <View
-          style={{
-            position: "absolute",
-            bottom: 24,
-            left: small ? 16 : 260,
-            right: 24,
-            backgroundColor: "#e4eddf",
-            padding: 18,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: "#bdcdb6",
-          }}
-        >
-          <Pressable onPress={() => setNotice("")}>
-            <Text style={ui.text}>{notice} ×</Text>
-          </Pressable>
-        </View>
-      )}
+      <Toast message={notice} onClose={() => setNotice("")} />
       {detail && (
         <Sheet title={detail.name} onClose={() => setDetail(null)}>
           <Image
@@ -1266,7 +1106,7 @@ export function WebApp() {
             setNotice("");
           }}
         >
-          <Text style={ui.error}>{notice}</Text>
+
           {modal === "cart" ? (
             cartContent
           ) : modal === "catalog" ? (
@@ -1290,7 +1130,7 @@ export function WebApp() {
                 refresh(revision + 1);
               }}
             />
-          ) : modal === "Thêm sản phẩm" ? (
+          ) : ["Thêm sản phẩm", "Sửa sản phẩm"].includes(modal) ? (
             <>
               {field("sku", "Mã sản phẩm")}
               {field("name", "Tên kính")}
@@ -1306,7 +1146,8 @@ export function WebApp() {
               {field("brand", "Thương hiệu")}
               {field("price", "Giá bán")}
               {field("stock", "Tồn kho")}
-              {field("imageUrl", "URL ảnh (không bắt buộc)")}
+              <ImageUpload value={form.imageUrl || ""} onChange={value => setForm({ ...form, imageUrl: value })} />
+              {field("imageUrl", "Hoặc URL ảnh (không bắt buộc)")}
               <Button primary onPress={save}>
                 Lưu sản phẩm
               </Button>
@@ -1352,35 +1193,12 @@ export function WebApp() {
                 Xác nhận xóa
               </Button>
             </>
+          ) : modal === "Xóa sản phẩm" ? (
+            <View style={{gap:18}}><Text style={ui.text}>Xóa sản phẩm “{form.name}” khỏi danh mục? Thông tin trong hóa đơn cũ vẫn được giữ.</Text><View style={ui.row}><Button onPress={()=>setModal('')}>Giữ lại</Button><Button primary onPress={()=>{const result=productService.deleteProduct(form.id,user!.role);if(!result.success){setNotice(result.error||'');return;}setModal('');setNotice('Đã xóa sản phẩm.');refresh(v=>v+1);}}>Xác nhận xóa</Button></View></View>
+          ) : modal === "Xóa hóa đơn" ? (
+            <View style={{gap:18}}><Text style={ui.text}>Xóa hóa đơn {db.invoices.find(v => v.id === form.id)?.invoiceCode}? Thao tác này sẽ bỏ đơn khỏi danh sách.</Text><View style={ui.row}><Button onPress={() => setModal("")}>Giữ lại</Button><Button primary onPress={() => { try { deleteUnpaidInvoice(user!.id,form.id); if(draftId===form.id){setDraftId('');setCart({});setCustomer('');setVoucher('');} setModal('');setNotice('Đã xóa hóa đơn.');refresh(v=>v+1); } catch(e){setNotice((e as Error).message);} }}>Xác nhận xóa</Button></View></View>
           ) : modal === "Hồ sơ khách hàng" ? (
-            (() => {
-              const c = db.customers.find((v) => v.id === form.id)!;
-              return (
-                <>
-                  <Text style={ui.h2}>{c.fullName}</Text>
-                  <Text style={ui.text}>
-                    {c.phone}
-                    {"\n"}
-                    {c.email}
-                    {"\n"}
-                    {c.address}
-                  </Text>
-                  <Text style={[ui.h2, { marginTop: 25 }]}>Lịch sử đo mắt</Text>
-                  {c.prescriptions.length ? (
-                    c.prescriptions.map((r, i) => (
-                      <Text key={i} style={[ui.text, { marginTop: 15 }]}>
-                        {r.measuredAt} · Mắt phải: {r.sphereRight} /{" "}
-                        {r.cylinderRight} / {r.axisRight}°{"\n"}Mắt trái:{" "}
-                        {r.sphereLeft} / {r.cylinderLeft} / {r.axisLeft}° · PD{" "}
-                        {r.pupillaryDistance}
-                      </Text>
-                    ))
-                  ) : (
-                    <Text style={ui.muted}>Chưa có lần đo mắt.</Text>
-                  )}
-                </>
-              );
-            })()
+            <MemberDashboard customer={db.customers.find(v => v.id === form.id)!} />
           ) : (
             (() => {
               const v = db.invoices.find((v) => v.id === form.id);

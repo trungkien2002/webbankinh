@@ -53,6 +53,7 @@ export interface Product {
   price: number;
   stock: number;
   imageUrl?: string;
+  imageOverride?: boolean;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;

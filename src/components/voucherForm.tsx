@@ -1,3 +1,4 @@
+import { Toast } from './toast';
 import React, { useState } from "react";
 import { Text } from "react-native";
 import { Voucher } from "../contracts/domain";
@@ -52,7 +53,7 @@ export function VoucherForm({
           onChange={(v) => setForm({ ...form, [key]: v })}
         />
       ))}
-      <Text style={ui.error}>{error}</Text>
+      <Toast message={error} onClose={() => setError('')} />
       <Button
         primary
         onPress={() => {

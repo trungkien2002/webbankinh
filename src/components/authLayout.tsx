@@ -1,0 +1,8 @@
+import React from 'react';
+import { Image, Text, View, useWindowDimensions } from 'react-native';
+import { catalogImage } from './catalogAssets';
+import { palette as p, ui } from './ui';
+export function AuthLayout({ title, children }: { title: string; children: React.ReactNode }) {
+  const { width } = useWindowDimensions(); const mobile = width < 760;
+  return <View testID="customer-login" style={{ flexDirection: mobile ? 'column' : 'row', backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden', minHeight: mobile ? undefined : 540 }}><View style={{ width: mobile ? '100%' : '46%', backgroundColor: '#e9e9e9', padding: mobile ? 24 : 38, justifyContent: 'center', gap: 20 }}><Text style={{ color: p.green, fontSize: 14, letterSpacing: 3 }}>ÉLAN / STUDIO</Text><Text style={{ color: p.green, fontSize: mobile ? 26 : 36, lineHeight: mobile ? 36 : 49, fontWeight: '600' }}>Một góc nhìn mới.{mobile ? ' ' : '\n'}Tự tin trong từng ánh nhìn.</Text>{!mobile && <Image source={{ uri: catalogImage('CATALOG_EL0021') }} resizeMode="contain" style={{ height: 195, width: '100%', mixBlendMode: 'darken' } as any} />}{!mobile && <Text style={ui.muted}>Lưu giữ những chiếc kính yêu thích và trải nghiệm của riêng bạn.</Text>}</View><View style={{ width: mobile ? '100%' : '54%', padding: mobile ? 24 : 44, justifyContent: 'center' }}><View style={{ maxWidth: 390, width: '100%', alignSelf: 'center', gap: 14 }}><Text style={[ui.h1, { fontSize: mobile ? 25 : 30 }]}>{title}</Text><Text style={[ui.muted, { marginBottom: 9 }]}>Đăng nhập để theo dõi đơn hàng và trải nghiệm dành riêng cho bạn.</Text>{children}</View></View></View>;
+}

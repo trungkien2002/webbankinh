@@ -56,6 +56,11 @@ export function invoiceDetail(userId: string, invoiceId: string): Invoice {
   if (!invoice) throw new Error('Hóa đơn không tồn tại.');
   return JSON.parse(JSON.stringify(invoice));
 }
+export function deleteUnpaidInvoice(userId: string, invoiceId: string) {
+  const invoice = invoiceDetail(userId, invoiceId);
+  if (invoice.paymentStatus === 'paid') throw new Error('Không thể xóa hóa đơn đã thanh toán.');
+  db.transaction(data => { data.invoices = data.invoices.filter(i => i.id !== invoiceId); });
+}
 function editable(userId: string, invoiceId: string) {
   const invoice = invoiceDetail(userId, invoiceId);
   if (!['draft', 'pending'].includes(invoice.paymentStatus)) throw new Error('Đơn đã thanh toán hoặc đã hủy, không thể sửa.');
@@ -70,6 +75,10 @@ export function saveDraftItems(userId: string, invoiceId: string, quantities: Re
     return { id: `line-${productId}`, productId, productName: product.name, sku: product.sku,
       unitPrice: product.price, quantity, lineTotal: product.price * quantity };
   });
+  if (!items.length) {
+    db.transaction(data => { data.invoices = data.invoices.filter(i => i.id !== invoiceId); });
+    return;
+  }
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
   const discount = voucherCode.trim() ? voucherService.applyVoucher({ voucherCode, subtotal }) : undefined;
   if (discount && !discount.success) throw new Error(discount.error);
