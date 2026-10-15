@@ -97,3 +97,5 @@
 - Bổ sung sổ importKeys/stockMovements/payments với migration mặc định rỗng cho dữ liệu local cũ. Thanh toán local có khóa chống lặp gắn invoice/method và ghi cùng transaction với tồn kho/voucher. Thêm import preview, tìm kiếm, chỉnh khách/khóa user qua service API; không thêm màn hình mới. QR là payload demo, adapter đọc file Excel chưa có trong nhánh nên chưa cung cấp uploadxlsx quaUI.
 - Chi tiết phạm vi/nguồn/kiểm chứng tại docs/integration-bao-hoan-20261015.md. Giữ nguyên component/screen/CSS/ảnh/seed/package; backupkien951aacf còn nguyên.
 
+
+- Merge logic Hoan đã push lên main tạiab1dd15; ancestry bao/hoan đều được ghi nhận. Không lấy hoan-dialog hoặc thư mục dự án lồng. GitHub xác nhận backupkien vẫn951aacf. Báo cáo phạm vi tại docs/integration-bao-hoan-20261015.md.

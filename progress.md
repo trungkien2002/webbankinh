@@ -1,4 +1,5 @@
 ## Trạng thái hiện tại
+- 2026-10-15 13:54: main đã tích hợp logic Hoan bằng mergeab1dd15; Bảo đã có sẵn. 79/79test,typecheck/build đạt. Không đổi bất kỳ component/screen/CSS/ảnh/seed/package nào; chưa nối mànUI mới cho import/QR/chỉnh khách/khóauser. Backupkien951aacf giữ nguyên.
 - 2026-10-15 13:43: đã push bản duyệt lên origin/kien951aacf và merge/push main47df00a. 67/67test, typecheck đạt; code/assets hai nhánh trùng nhau. Giữ riêng Sprint1Kiên chưa commit ở checkout chính; chưa nhập nhánh thành viên khác.
 - 2026-10-15 13:27: tiếp tục sau khi quota phục hồi; hoàn tất Toast cho lỗi form nhân viên/voucher/upload ảnh, cập nhật8086. 63/63test, typecheck/build đạt; browser xác nhận lỗi nhân viên tự tắt, hiện lại sau thao tác lặp và lỗi voucher hiển thị cùng Toast. Chưa commit/push.
 - 2026-10-15 11:36: hoàn thiện hồ sơ thành viên theo ảnh mẫu và popup admin, dữ liệu khách hư cấu, bí danh đăng nhập riêng, khôi phục login chia hai cột, bỏ điều hướng dư, sửa dot/gallery/gợi ý mobile. 63/63 test, typecheck/build đạt; browser kiểm tra 320/390/768/1440px, đăng nhập khách/admin thành công; chưa commit/push. Bản chạy8086 trong outputs/bao-review-20261015, giữ nguyên Sprint1 Kiên ở checkout chính.
@@ -245,5 +246,4 @@
 ## 2026-10-15 13:52 — tích hợp logic Bảo/Hoan
 - Fetch: Bảo926c4c8 không có commit ngoài main; Hoane262a6d có3file root mới và bản sao/gitlink lồng. Chỉ lấy2file service/test, bổ sung contracts/database/session/completeDraft cần thiết. Không lấy giao diện hay bản dự án lồng.
 - Sửa điểm tương thích: removeInvoiceItem dòng cuối xóa đơn; paymentkey ràng buộc đơn/method; tiền mặt kiểm theo voucher hiện hành; email khách kiểm hợp lệ/trùng; dữ liệu cũ nhận ledger mới mà không reset.
--79/79test,typecheck/exportweb đạt; gitdiff src/components src/screens assets data package so với e9829b9 rỗng. Các tính năng import/QR/chỉnh khách/khóauser mới chỉ tầngservice, không thêm mànUI theo yêu cầu. Đang đóng gói merge chọn lọc và pushmain; giữ backupkien và Sprint1local.
-
+-79/79test,typecheck/exportweb đạt; gitdiff src/components src/screens assets data package so với e9829b9 rỗng. Các tính năng import/QR/chỉnh khách/khóauser mới chỉ tầngservice, không thêm mànUI theo yêu cầu. Đã merge/pushmain ab1dd15; giữ backupkien951aacf và Sprint1local.
