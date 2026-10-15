@@ -99,3 +99,6 @@
 
 
 - Merge logic Hoan đã push lên main tạiab1dd15; ancestry bao/hoan đều được ghi nhận. Không lấy hoan-dialog hoặc thư mục dự án lồng. GitHub xác nhận backupkien vẫn951aacf. Báo cáo phạm vi tại docs/integration-bao-hoan-20261015.md.
+
+- Merge Khánh15/10/2026: nguồn a4ea53d/507b42b. Logic10story đã có trongmain từ lần nhận trước; lần này merge ancestry để ghi nhận commit/tác giả gốc, giữ nguyên toàn bộ mã hiện tại/giao diện. Không thay tác giả hoặc ghi đè các mở rộng mới. Chi tiết docs/integration-khanh-20261015.md.
+

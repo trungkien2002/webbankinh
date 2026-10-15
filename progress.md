@@ -247,3 +247,8 @@
 - Fetch: Bảo926c4c8 không có commit ngoài main; Hoane262a6d có3file root mới và bản sao/gitlink lồng. Chỉ lấy2file service/test, bổ sung contracts/database/session/completeDraft cần thiết. Không lấy giao diện hay bản dự án lồng.
 - Sửa điểm tương thích: removeInvoiceItem dòng cuối xóa đơn; paymentkey ràng buộc đơn/method; tiền mặt kiểm theo voucher hiện hành; email khách kiểm hợp lệ/trùng; dữ liệu cũ nhận ledger mới mà không reset.
 -79/79test,typecheck/exportweb đạt; gitdiff src/components src/screens assets data package so với e9829b9 rỗng. Các tính năng import/QR/chỉnh khách/khóauser mới chỉ tầngservice, không thêm mànUI theo yêu cầu. Đã merge/pushmain ab1dd15; giữ backupkien951aacf và Sprint1local.
+
+## 2026-10-15 13:56 — merge đóng góp Khánh, giữ nguyên giao diện
+- Fetch nhánhkhanh a4ea53d; hai commitgốc507b42b/a4ea53d chưa là ancestor main, nhưng logic10story/39test đã hiện diện từ lần nhập trước. a4ea53d chỉ sửa tiến độ. Giữ nguyên logic main có các bổ sung mới.
+- Tạo merge ancestry bằng ours để đưa commitgốc/tác giảKhanh123453 vào lịch sửmain. Diff src/assets/data/package rỗng,79/79test vàtypecheck đạt. Không buildlại vìcode/dependency không đổi. Đang pushmain; không sửa backupkien hoặccheckoutchính.
+
