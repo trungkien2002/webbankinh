@@ -1,0 +1,128 @@
+// Run prepare-bao-completion-preview.cjs and build:web in its preview directory first.
+const fs = require('node:fs');
+const path = require('node:path');
+const http = require('node:http');
+const { spawn } = require('node:child_process');
+const assert = require('node:assert/strict');
+const repo = path.resolve(__dirname, '..');
+const root = path.join(path.dirname(repo), 'bao-completion-preview');
+const output = path.join(path.dirname(repo), 'bao-completion-results');
+fs.mkdirSync(output, { recursive: true });
+const pause = ms => new Promise(r => setTimeout(r, ms));
+const server = http.createServer((req, res) => {
+  const file = path.resolve(root, 'dist', '.' + (req.url.split('?')[0] === '/' ? '/index.html' : decodeURIComponent(req.url.split('?')[0])));
+  if (!file.startsWith(path.join(root, 'dist') + path.sep)) { res.writeHead(403); return res.end(); }
+  fs.readFile(file, (err, data) => { if (err) { res.writeHead(404); return res.end(); }
+    res.setHeader('Content-Type', ({ '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.jpg': 'image/jpeg', '.png': 'image/png', '.ttf': 'font/ttf' })[path.extname(file)] || 'application/octet-stream'); res.end(data); });
+});
+let chrome, ws;
+const results = [], errors = [];
+async function main() {
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const profile = path.join(output, 'browser-profile', String(Date.now()));
+  chrome = spawn(process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', ['--headless=new', '--no-first-run', '--disable-gpu', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { windowsHide: true, stdio: 'ignore' });
+  let port;
+  for (let i = 0; i < 150; i++) { try { port = fs.readFileSync(path.join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]; break; } catch { await pause(100); } }
+  assert(port, 'Chrome unavailable');
+  const target = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(t => t.type === 'page');
+  ws = new WebSocket(target.webSocketDebuggerUrl);
+  await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
+  let sequence = 0; const pending = new Map();
+  ws.onmessage = event => {
+    const message = JSON.parse(event.data);
+    if (message.id) { const task = pending.get(message.id); if (task) { pending.delete(message.id); message.error ? task.reject(new Error(JSON.stringify(message.error))) : task.resolve(message.result); } }
+    if (message.method === 'Runtime.exceptionThrown') errors.push(JSON.stringify(message.params.exceptionDetails));
+  };
+  const call = (method, params = {}) => new Promise((resolve, reject) => { const id = ++sequence; pending.set(id, { resolve, reject }); ws.send(JSON.stringify({ id, method, params })); });
+  const evaluate = async expression => { const value = await call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (value.exceptionDetails) throw new Error(value.exceptionDetails.exception?.description || value.exceptionDetails.text); return value.result.value; };
+  const wait = async expression => { for (let i = 0; i < 120; i++) { if (await evaluate(expression)) return; await pause(100); } throw new Error('Timeout: ' + expression); };
+  const click = async (label, index = 0) => { await evaluate(`(() => { const el=[...document.querySelectorAll('[role="button"]')].filter(e=>e.getAttribute('aria-label')===${JSON.stringify(label)}||e.innerText.trim()===${JSON.stringify(label)})[${index}];if(!el)throw new Error('Missing button: '+${JSON.stringify(label)});el.click(); })()`); await pause(220); };
+  const fill = async (label, value) => { await evaluate(`(() => { const el=[...document.querySelectorAll('input,textarea')].filter(e=>e.getAttribute('aria-label')===${JSON.stringify(label)}).at(-1);if(!el)throw new Error('Missing input: '+${JSON.stringify(label)});Object.getOwnPropertyDescriptor(el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true})); })()`); await pause(110); };
+  const text = value => wait(`document.body.innerText.includes(${JSON.stringify(value)})`);
+  const data = () => evaluate(`JSON.parse(localStorage.getItem('webbankinh_db'))`);
+  const pass = name => { results.push(name); console.log('PASS ' + name); };
+  const shot = async name => { const r = await call('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(output, name + '.png'), Buffer.from(r.data, 'base64')); };
+  const uploadFixture = async () => {
+    await evaluate(`(async () => {const canvas=document.createElement('canvas');canvas.width=12;canvas.height=12;const c=canvas.getContext('2d');c.fillStyle='#284e43';c.fillRect(0,0,12,12);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));const transfer=new DataTransfer();transfer.items.add(new File([blob],'fixture.png',{type:'image/png'}));const input=document.querySelector('input[type=file]');input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await wait(`document.querySelector('[aria-label="Xem trước ảnh sản phẩm"]')?.src?.startsWith('data:image/jpeg') || [...document.querySelectorAll('img')].some(e=>e.src.startsWith('data:image/jpeg'))`);
+    await pause(250);
+  };
+  await call('Runtime.enable'); await call('Page.enable');
+  await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, mobile: false, deviceScaleFactor: 1 });
+  await call('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/#/admin` });
+  await text('Chào mừng trở lại'); await fill('Tài khoản', 'b'); await fill('Mật khẩu', 'b'); await click('Đăng nhập'); await text('Tổng quan');
+  // Fixtures stay inside a fresh browser profile. No application seed is changed.
+  await evaluate(`(() => {const d=JSON.parse(localStorage.getItem('webbankinh_db'));d.employees[1].shift='Ca chiều'; const base=d.employees[1];for(let i=0;i<13;i++)d.employees.push({...base,id:'TEST-EMP'+i,userId:'',fullName:'Nhân viên thử '+i,phone:'08800000'+String(i).padStart(2,'0')});d.invoices=Array.from({length:27},(_,i)=>({id:'TEST-INV'+String(i).padStart(2,'0'),invoiceCode:'TEST-HD'+String(i).padStart(2,'0'),customerId:d.customers[0].id,customerName:d.customers[0].fullName,customerPhone:d.customers[0].phone,employeeId:'EMP001',employeeName:'Nhân viên demo',items:[],subtotal:100000,discountAmount:0,totalAmount:100000,paymentMethod:'cash',paymentStatus:i%2===0?'paid':'pending',productionStatus:'none',createdAt:'2026-10-21T18:30:00.000Z',updatedAt:'2026-10-21T18:30:00.000Z'}));localStorage.setItem('webbankinh_db',JSON.stringify(d));})()`);
+  await call('Page.reload'); await text('Tổng quan');
+  await click('Khách hàng'); await click('Xem hồ sơ', 0); await click('Sửa khách hàng');
+  const beforeCustomer = (await data()).customers[0];
+  await fill('Số điện thoại khách hàng', 'bad'); await click('Lưu khách hàng'); await text('9–11');
+  assert.equal((await data()).customers[0].phone, beforeCustomer.phone);
+  await fill('Họ tên khách hàng', 'Khách sửa demo'); await fill('Số điện thoại khách hàng', '0907777777');
+  await fill('Email khách hàng', 'edit@example.com'); await click('Thêm lần đo mới');
+  for (const [key, value] of Object.entries({ 'SPH phải': '-1', 'CYL phải': '0', 'AXIS phải': '0', 'SPH trái': '-1.5', 'CYL trái': '0', 'AXIS trái': '0', 'PD (mm)': '62' })) await fill(key, value);
+  await click('Lưu khách hàng'); await text('Đã lưu khách hàng.');
+  const changed = (await data()).customers[0];
+  assert.equal(changed.fullName, 'Khách sửa demo'); assert.equal(changed.customerCode, beforeCustomer.customerCode);
+  assert.equal(changed.prescriptions.length, beforeCustomer.prescriptions.length + 1);
+  assert.equal((await data()).invoices[0].customerName, beforeCustomer.fullName);
+  await call('Page.reload'); await text('Tổng quan'); await click('Khách hàng'); await text('Khách sửa demo');
+  pass('KH002 invalid form recovery, contact/measurement append, invoice snapshot and reload');
+  await click('Nhân viên'); await fill('Tìm kiếm', '0909876543'); await text('Nguyễn Văn Hoan');
+  await fill('Lọc ca làm', 'CHIEU'); await text('Nguyễn Văn Hoan');
+  await click('Khóa tài khoản'); await click('Xác nhận'); await text('Đã khóa');
+  assert.equal((await data()).users.find(u => u.id === 'USR002').isActive, false);
+  await click('Mở khóa'); await click('Xác nhận');
+  assert.equal((await data()).users.find(u => u.id === 'USR002').isActive, true);
+  pass('NV003 confirmed lock/unlock preserves records');
+  await fill('Tìm kiếm', '999999'); await text('Chưa có dữ liệu phù hợp.');
+  await fill('Tìm kiếm', ''); await fill('Lọc ca làm', ''); await click('Trang sau');
+  await fill('Tìm kiếm', 'Nguyễn Văn Hoan');
+  assert(await evaluate(`document.querySelector('[aria-label="Trang trước"]')===null`));
+  await shot('employees-desktop');
+  pass('NV004 phone/shift search, empty state, clear filters and reset page');
+  await click('Hóa đơn'); await text('1.400.000'); await text('22/10/2026');
+  await click('Trang sau'); await text('1.400.000');
+  await fill('Tìm kiếm', 'TEST-HD00');
+  assert(await evaluate(`document.querySelector('[aria-label="Trang trước"]')===null`));
+  await click('Chi tiết'); await text('TEST-HD00');
+  assert(!(await evaluate(`document.body.innerText`)).includes('Xác nhận xóa')); await click('Đóng');
+  await fill('Tìm kiếm', ''); await click('Chờ thanh toán'); await text('Đã thu: 0');
+  await click('Xóa', 0); await text('Xóa hóa đơn'); await click('Đóng');
+  pass('HD001 VN date, all-page paid revenue, status/query reset and existing detail/delete actions');
+  await click('Sản phẩm'); await click('Sửa', 0);
+  await fill('Màu sắc', 'Xanh demo'); await fill('Chất liệu', 'Titan demo'); await fill('Dáng kính', 'Tròn demo'); await click('Lưu sản phẩm');
+  const product = (await data()).products.find(p => p.color === 'Xanh demo'); assert(product);
+  await click('Sửa', 0); await fill('Giá bán', String(product.price + 100)); await click('Lưu sản phẩm');
+  assert.equal((await data()).products.find(p => p.id === product.id).material, 'Titan demo');
+  pass('SP002 fields bind/save and remain on price-only edit; price ledger still awaiting model');
+  await click('Sửa', 0); await uploadFixture(); await click('Lưu sản phẩm');
+  const updatedImage=(await data()).products.find(p=>p.id===product.id).imageUrl;
+  assert((await data()).products.find(p=>p.id===product.id).imageOverride);
+  assert(await evaluate(`[...document.querySelectorAll('img')].some(e=>e.src===${JSON.stringify(updatedImage)})`));
+  await click('Chi tiết',0); assert(await evaluate(`[...document.querySelectorAll('img')].some(e=>e.src===${JSON.stringify(updatedImage)})`)); await click('Đóng');
+  await click('Thêm sản phẩm'); await fill('Mã sản phẩm','BAO-NEW'); await fill('Tên kính','Kính demo tự thêm'); await fill('Giá bán','100000'); await fill('Tồn kho','2'); await click('Lưu sản phẩm');
+  await fill('Tìm kiếm','BAO-NEW'); await click('Sửa',0); await uploadFixture(); await click('Lưu sản phẩm');
+  const ownImage=(await data()).products.find(p=>p.sku==='BAO-NEW').imageUrl;
+  assert(await evaluate(`[...document.querySelectorAll('img')].some(e=>e.src===${JSON.stringify(ownImage)})`));
+  await click('Chi tiết',0); assert(await evaluate(`[...document.querySelectorAll('img')].some(e=>e.src===${JSON.stringify(ownImage)})`)); await click('Đóng');
+  pass('SP002 uploaded image overrides catalog and custom product thumbnails/detail');
+  await call('Page.navigate', {url:`http://127.0.0.1:${server.address().port}/#/product/${product.id}`});
+  await wait(`[...document.querySelectorAll('img')].some(e=>e.src===${JSON.stringify(updatedImage)})`);
+  const ownId=(await data()).products.find(p=>p.sku==='BAO-NEW').id;
+  await call('Page.navigate', {url:`http://127.0.0.1:${server.address().port}/#/product/${ownId}`});
+  await wait(`[...document.querySelectorAll('img')].some(e=>e.src===${JSON.stringify(ownImage)})`);
+  await call('Page.navigate', {url:`http://127.0.0.1:${server.address().port}/#/admin`}); await text('Tổng quan');
+  pass('SP002 public product gallery uses new images after reload for catalog/custom products');
+  await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, mobile: true, deviceScaleFactor: 1 });
+  await wait(`document.body.innerText.includes('Menu quản lý')`);
+  // Menu is collapsed in the approved narrow layout.
+  await click('Menu quản lý'); await click('Khách hàng'); await click('Xem hồ sơ', 0); await click('Sửa khách hàng');
+  await shot('customer-form-390');
+  assert(await evaluate('document.documentElement.scrollWidth<=395'));
+  await click('Đóng');
+  pass('390px customer form, close icon and no page overflow');
+  assert.equal(errors.length, 0, errors.join('\n'));
+  fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ results, runtimeErrors: errors, scope: 'Isolated preview with integration patch; protected shared source unchanged', pending: ['KH003 appointment contract/migration', 'SP002 price-history contract/migration', 'Kien applying integration patch'] }, null, 2));
+}
+main().catch(e => { console.error(e.stack); process.exitCode = 1; }).finally(async () => { if (ws) ws.close(); if (chrome) chrome.kill(); await new Promise(r => server.close(r)); });
