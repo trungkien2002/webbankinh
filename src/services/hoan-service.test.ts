@@ -62,6 +62,34 @@ describe('LSP002/LSP005 — category import and search', () => {
 });
 
 describe('SP002/SP003 — product import and soft delete', () => {
+  it('imports multiple lots for one SKU with the same barcode exactly once', () => {
+    const rows = [
+      { sku: 'GK001', barcode: '893111111111', quantity: 2, lot: 'LOT-A' },
+      { sku: 'GK001', barcode: '893111111111', quantity: 3, lot: 'LOT-B' },
+    ];
+    expect(commitProductImport('USR002', rows, 'multi-lot').imported).toBe(2);
+    expect(db.products[0].stock).toBe(17);
+    expect(db.stockMovements.filter(m => m.importKey === 'multi-lot').map(m => m.lot)).toEqual(['LOT-A', 'LOT-B']);
+    expect(commitProductImport('USR002', rows, 'multi-lot').duplicate).toBe(true);
+    expect(db.products[0].stock).toBe(17);
+  });
+
+  it('rejects conflicting barcodes before changing any stock or import ledger', () => {
+    const stock = db.products.map(p => p.stock);
+    expect(() => commitProductImport('USR002', [
+      { sku: 'GK001', barcode: 'CODE-A', quantity: 2 },
+      { sku: 'GK001', barcode: 'CODE-B', quantity: 3 },
+    ], 'conflicting-sku')).toThrow(/nhiều mã vạch/);
+    expect(() => commitProductImport('USR002', [
+      { sku: 'GK001', barcode: 'CODE-A', quantity: 2 },
+      { sku: db.products[1].sku, barcode: 'CODE-A', quantity: 3 },
+    ], 'conflicting-products')).toThrow(/trùng/);
+    expect(db.products.map(p => p.stock)).toEqual(stock);
+    expect(db.importKeys).not.toContain('conflicting-sku');
+    expect(db.importKeys).not.toContain('conflicting-products');
+    expect(db.stockMovements).toHaveLength(0);
+  });
+
   it('increments stock by barcode/lot and does not apply the same file twice', () => {
     const sheet = [
       ['SKU', 'Barcode', 'Số lượng', 'Lô'],

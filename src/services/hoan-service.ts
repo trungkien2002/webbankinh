@@ -155,7 +155,8 @@ export function previewProductImport(userId: string, sheet: unknown[][]) {
   const lotIdx = cols['lo'] ?? cols['lot'] ?? cols['solo'];
   const errors: ImportRowError[] = [];
   const valid: ProductImportRow[] = [];
-  const barcodes = new Set<string>();
+  const barcodes = new Map<string, string>();
+  const skuBarcodes = new Map<string, string>();
   parsed.rows.forEach((row, index) => {
     const line = index + 2;
     if (row.every(cell => !cell)) return;
@@ -177,11 +178,16 @@ export function previewProductImport(userId: string, sheet: unknown[][]) {
       return;
     }
     if (barcode) {
-      if (barcodes.has(barcode) || db.products.some(p => p.barcode === barcode && p.id !== product.id && !p.isDeleted)) {
+      if ((barcodes.has(barcode) && barcodes.get(barcode) !== sku) || db.products.some(p => p.barcode === barcode && p.id !== product.id && !p.isDeleted)) {
         errors.push({ line, message: `Mã vạch trùng: ${barcode}` });
         return;
       }
-      barcodes.add(barcode);
+      if (skuBarcodes.has(sku) && skuBarcodes.get(sku) !== barcode) {
+        errors.push({ line, message: `SKU có nhiều mã vạch trong file: ${sku}` });
+        return;
+      }
+      barcodes.set(barcode, sku);
+      skuBarcodes.set(sku, barcode);
     }
     valid.push({ sku, barcode, quantity, lot: lot || undefined });
   });

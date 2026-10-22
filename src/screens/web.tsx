@@ -49,6 +49,7 @@ import { voucherService } from "../services/voucherService";
 import { getDemoSession, loginDemo, logoutDemo } from "../services/demoSession";
 
 const art = (product?: Product, index = 0) =>
+  (product?.imageOverride ? product.imageUrl : undefined) ||
   (product ? catalogImage(product.id) : undefined) ||
   product?.imageUrl ||
   glassesArt(
