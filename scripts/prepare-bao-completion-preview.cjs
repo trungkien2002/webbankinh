@@ -17,16 +17,15 @@ const replace = (before, after) => {
   if (!web.includes(before)) throw new Error('Main changed; review integration anchor: ' + before.slice(0, 100));
   web = web.replace(before, after);
 };
-replace('import { deleteUnpaidInvoice }', `import { CustomerEdit } from '../components/customer-edit';
-import { EmployeeManagement } from '../components/employee-management';
+replace('import { deleteUnpaidInvoice }', `${web.includes("import { CustomerEdit }") ? '' : "import { CustomerEdit } from '../components/customer-edit';\n"}import { EmployeeManagement } from '../components/employee-management';
 import { InvoiceList } from '../components/invoice-list';
 import { ProductEdit } from '../components/product-edit';
 import { deleteUnpaidInvoice }`);
-replace('  const [modal, setModal] = useState("");', `  const [modal, setModal] = useState("");
+if (!web.includes('const [customerEditId,')) replace('  const [modal, setModal] = useState("");', `  const [modal, setModal] = useState("");
   const [customerEditId, setCustomerEditId] = useState('');`);
-replace('      {baoDialog &&', `      {!!customerEditId && <Sheet title="Sửa khách hàng" onClose={() => setCustomerEditId('')}><CustomerEdit key={customerEditId} actorId={user!.id} customerId={customerEditId} onSaved={() => { setCustomerEditId(''); refresh(v => v + 1); setNotice('Đã lưu khách hàng.'); }} /></Sheet>}
+if (!web.includes('!!customerEditId &&')) replace('      {baoDialog &&', `      {!!customerEditId && <Sheet title="Sửa khách hàng" onClose={() => setCustomerEditId('')}><CustomerEdit key={customerEditId} actorId={user!.id} customerId={customerEditId} onSaved={() => { setCustomerEditId(''); refresh(v => v + 1); setNotice('Đã lưu khách hàng.'); }} /></Sheet>}
       {baoDialog &&`);
-replace('<MemberDashboard customer={db.customers.find(v => v.id === form.id)!} />', `<View style={{gap:16}}><Button onPress={() => { setCustomerEditId(form.id); setModal(''); }}>Sửa khách hàng</Button><MemberDashboard key={revision} customer={db.customers.find(v => v.id === form.id)!} /></View>`);
+if (web.includes('<MemberDashboard customer=')) replace('<MemberDashboard customer={db.customers.find(v => v.id === form.id)!} />', `<View style={{gap:16}}><Button onPress={() => { setCustomerEditId(form.id); setModal(''); }}>Sửa khách hàng</Button><MemberDashboard key={revision} customer={db.customers.find(v => v.id === form.id)!} /></View>`);
 replace('· {detail.color || "Sắc màu tự nhiên"}', '· {detail.color || "Sắc màu tự nhiên"} · {detail.shape || "Chưa khai báo dáng"}');
 replace(') : ["Thêm sản phẩm", "Sửa sản phẩm"].includes(modal) ? (', `) : modal === 'Sửa sản phẩm' ? (
             <ProductEdit key={form.id} actorId={user!.id} productId={form.id} onSaved={() => { setModal(''); refresh(v => v + 1); setNotice('Đã lưu sản phẩm.'); }} />
