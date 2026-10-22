@@ -83,6 +83,15 @@ export interface Customer {
   updatedAt: string;
 }
 
+export interface ProductPriceChange {
+  id: string;
+  productId: string;
+  oldPrice: number;
+  newPrice: number;
+  changedAt: string;
+  changedBy: string;
+}
+
 export interface CustomerAppointment {
   id: string;
   customerId: string;

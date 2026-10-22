@@ -1,3 +1,6 @@
+import { EmployeeManagement } from '../components/employee-management';
+import { InvoiceList } from '../components/invoice-list';
+import { ProductEdit } from '../components/product-edit';
 import { deleteUnpaidInvoice } from '../services/bao-service';
 import { Toast } from '../components/toast';
 import { SearchPicker } from '../components/searchPicker';
@@ -291,6 +294,7 @@ export function WebApp() {
       );
     else if (["Thêm sản phẩm", "Sửa sản phẩm"].includes(modal))
       result = (modal === "Sửa sản phẩm" ? (input: Parameters<typeof productService.createProduct>[0]) => productService.updateProduct(form.id,input) : (input: Parameters<typeof productService.createProduct>[0]) => productService.createProduct(input))({
+        actorId: user?.id,
         sku: form.sku || "",
         name: form.name || "",
         categoryId: form.categoryId || "",
@@ -911,53 +915,17 @@ export function WebApp() {
                           { label: 'Đã hủy', value: 'cancelled' },
                         ]}
                       />
-                      <Table
-                        headings={[
-                          "Hóa đơn",
-                          "Khách hàng",
-                          "Thành tiền",
-                          "Trạng thái",
-                          "Thao tác",
-                        ]}
-                        rows={invoiceService
-                          .filterInvoices({
-                            searchQuery: query,
-                            fromDate: from || undefined,
-                            toDate: to || undefined,
-                            paymentStatus: status as "all" | "paid" | "pending" | 'draft' | 'cancelled',
-                          })
-                          .map((v) => [
-                            v.invoiceCode,
-                            v.customerName || "Khách vãng lai",
-                            money(v.totalAmount),
-                            v.paymentStatus === "paid"
-                              ? "Đã thanh toán"
-                              : v.paymentStatus === 'draft' ? 'Đơn nháp' : v.paymentStatus === 'cancelled' ? 'Đã hủy' : "Chờ thanh toán",
-                            <View style={ui.row}>
-                              <Button
-                                onPress={() => {
-                                  setBaoDialog({ action: 'invoice-detail', id: v.id });
-                                }}
-                              >
-                                Chi tiết
-                              </Button>
-                              {['draft', 'pending'].includes(v.paymentStatus) && <Button onPress={() => {
-                                setDraftId(v.id); setCart(Object.fromEntries(v.items.map(i => [i.productId, i.quantity])));
-                                setCustomer(v.customerId || ''); setVoucher(v.voucherCode || ''); setSection('Bán hàng tại quầy');
-                              }}>Mở tại quầy</Button>}
-                              {v.paymentStatus !== "paid" && <Button onPress={() => { setForm({id:v.id}); setModal("Xóa hóa đơn"); }}>Xóa</Button>}
-                              {v.paymentStatus === "pending" && (
-                                <Button
-                                  onPress={() => {
-                                    setForm({ id: v.id });
-                                    setModal("Thanh toán đơn chờ");
-                                  }}
-                                >
-                                  Thanh toán
-                                </Button>
-                              )}
-                            </View>,
-                          ])}
+                      <InvoiceList
+                        actorId={user!.id}
+                        filter={{ searchQuery: query, fromDate: from || undefined, toDate: to || undefined, paymentStatus: status as 'all' | 'paid' | 'pending' | 'draft' | 'cancelled' }}
+                        onDetail={id => setBaoDialog({ action: 'invoice-detail', id })}
+                        onOpen={invoice => {
+                          setDraftId(invoice.id);
+                          setCart(Object.fromEntries(invoice.items.map(item => [item.productId, item.quantity])));
+                          setCustomer(invoice.customerId || ''); setVoucher(invoice.voucherCode || ''); setSection('Bán hàng tại quầy');
+                        }}
+                        onDelete={id => { setForm({ id }); setModal('Xóa hóa đơn'); }}
+                        onPay={id => { setForm({ id }); setModal('Thanh toán đơn chờ'); }}
                       />
                     </>
                   ) : section === "Voucher" ? (
@@ -1039,23 +1007,7 @@ export function WebApp() {
                         ])}
                     />
                   ) : (
-                    <Table
-                      headings={[
-                        "Nhân viên",
-                        "Email",
-                        "Số điện thoại",
-                        "Vị trí",
-                        'Ca / chi nhánh',
-                        'Thao tác',
-                      ]}
-                      rows={db.employees
-                        .filter((v) =>
-                          v.fullName
-                            .toLowerCase()
-                            .includes(query.toLowerCase()),
-                        )
-                        .map((v) => [v.fullName, v.email, v.phone, v.position, `${v.shift || '—'} / ${v.branch || '—'}`, user?.role === 'admin' ? <Button onPress={() => setBaoDialog({ action: 'employee-edit', id: v.id })}>Sửa</Button> : '—'])}
-                    />
+<EmployeeManagement actorId={user!.id} query={query} onEdit={id => setBaoDialog({action:'employee-edit',id})} onChanged={() => refresh(v=>v+1)} />
                   )}
                 </>
               )}
@@ -1087,7 +1039,7 @@ export function WebApp() {
           <Text style={[ui.h1, { marginTop: 22 }]}>{money(detail.price)}</Text>
           <Text style={[ui.muted, { marginBottom: 20 }]}>
             {detail.brand || "Élan"} · {detail.material || "Thiết kế tinh giản"}{" "}
-            · {detail.color || "Sắc màu tự nhiên"}
+            · {detail.color || "Sắc màu tự nhiên"} · {detail.shape || "Chưa khai báo dáng"}
             {"\n"}
             {detail.stock} sản phẩm sẵn có · {detail.sku}
           </Text>
@@ -1142,6 +1094,8 @@ export function WebApp() {
                 refresh(revision + 1);
               }}
             />
+          ) : modal === 'Sửa sản phẩm' ? (
+            <ProductEdit key={form.id} actorId={user!.id} productId={form.id} onSaved={() => { setModal(''); refresh(v => v + 1); setNotice('Đã lưu sản phẩm.'); }} />
           ) : ["Thêm sản phẩm", "Sửa sản phẩm"].includes(modal) ? (
             <>
               {field("sku", "Mã sản phẩm")}

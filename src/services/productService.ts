@@ -5,6 +5,7 @@ import { Product, ProductType } from '../contracts/domain';
 import { db } from './database';
 
 export interface CreateProductInput {
+  actorId?: string;
   sku: string;
   name: string;
   categoryId: string;
@@ -41,7 +42,8 @@ export interface ServiceResult<T> {
 
 export class ProductService {
   public updateProduct(productId: string, input: CreateProductInput): ServiceResult<Product> {
-    if (input.currentActorRole !== 'admin') return {success:false,error:'Chỉ quản trị viên được sửa sản phẩm.'};
+    const actor = db.users.find(user => user.id === input.actorId && user.isActive && user.role === 'admin');
+    if (input.currentActorRole !== 'admin' || !actor) return {success:false,error:'Chỉ quản trị viên đang hoạt động được sửa sản phẩm.'};
     const product=db.products.find(p=>p.id===productId&&!p.isDeleted);
     if(!product)return {success:false,error:'Sản phẩm không tồn tại.'};
     const sku=input.sku.trim().toUpperCase(),name=input.name.trim();
@@ -52,8 +54,13 @@ export class ProductService {
     try {
       db.transaction(data => {
         const target = data.products.find(p => p.id === productId)!;
+        const changedAt = new Date().toISOString();
+        if (target.price !== input.price) data.productPriceChanges.push({
+          id: `PRICE-${crypto.randomUUID()}`, productId, oldPrice: target.price,
+          newPrice: input.price, changedAt, changedBy: actor.id,
+        });
         Object.assign(target, { sku, name, categoryId: input.categoryId, productType: input.productType,
-          price: input.price, stock: input.stock, updatedAt: new Date().toISOString() });
+          price: input.price, stock: input.stock, updatedAt: changedAt });
         for (const field of ['brand', 'color', 'material', 'shape'] as const) {
           if (input[field] !== undefined) target[field] = input[field]?.trim();
         }
