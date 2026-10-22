@@ -2,6 +2,8 @@ import { deleteUnpaidInvoice } from '../services/bao-service';
 import { Toast } from '../components/toast';
 import { SearchPicker } from '../components/searchPicker';
 import { MemberDashboard } from "../components/memberDashboard";
+import { CustomerEdit } from '../components/customer-edit';
+import { AppointmentReminders, CustomerAppointments, CustomerAppointmentSummary } from '../components/customer-appointments';
 import { preparePresentationData } from "../services/presentationData";
 import { customerSession } from "../services/customerAccount";
 import { ImageUpload } from "../components/imageUpload";
@@ -105,6 +107,7 @@ export function WebApp() {
   const [baoDialog, setBaoDialog] = useState<{ action: BaoAction; id?: string } | null>(null);
   const [detail, setDetail] = useState<Product | null>(null);
   const [modal, setModal] = useState("");
+  const [customerEditId, setCustomerEditId] = useState('');
   const [notice, setNotice] = useState("");
   const [form, setForm] = useState<Record<string, string>>({});
   const [email, setEmail] = useState("b");
@@ -129,7 +132,7 @@ export function WebApp() {
     if (!user) return;
     const timer = setInterval(() => {
       const session = getDemoSession();
-      if (!session || session.id !== user.id) { setUser(null); setPage('login'); setCart({}); setDraftId(''); setModal(''); setBaoDialog(null); }
+      if (!session || session.id !== user.id) { setUser(null); setPage('login'); setCart({}); setDraftId(''); setModal(''); setBaoDialog(null); setCustomerEditId(''); }
       else if (session.role !== user.role || session.email !== user.email) setUser(session);
     }, 1500);
     return () => clearInterval(timer);
@@ -711,6 +714,7 @@ export function WebApp() {
               <Text style={[ui.muted, { marginBottom: 26 }]}>
                 Không gian làm việc của cửa hàng Élan.
               </Text>
+              {['Tổng quan', 'Khách hàng'].includes(section) && user && <AppointmentReminders actorId={user.id} onOpen={id => { setForm({ id }); setModal('Hồ sơ khách hàng'); }} />}
               {section === "Tổng quan" ? (
                 <>
                   <View style={[ui.row, { marginBottom: 28 }]}>
@@ -1009,11 +1013,13 @@ export function WebApp() {
                     />
                   ) : section === "Khách hàng" ? (
                     <Table
+                      key={`customers-${query}`}
                       headings={[
                         "Khách hàng",
                         "Số điện thoại",
                         "Email",
                         "Số lần mua / lần gần nhất",
+                        "Hẹn tái khám",
                         "Hồ sơ",
                       ]}
                       rows={customerList(user!.id, query).map((v) => [
@@ -1021,14 +1027,15 @@ export function WebApp() {
                           v.phone,
                           v.email || "—",
                           `${v.purchaseCount} · ${v.lastPurchase?.slice(0, 10) || 'Chưa mua'}`,
-                          <Button
+                          <CustomerAppointmentSummary actorId={user!.id} customerId={v.id} />,
+                          <View style={ui.row}><Button
                             onPress={() => {
                               setForm({ id: v.id });
                               setModal("Hồ sơ khách hàng");
                             }}
                           >
                             Xem hồ sơ
-                          </Button>,
+                          </Button><Button onPress={() => setCustomerEditId(v.id)}>Sửa khách hàng</Button></View>,
                         ])}
                     />
                   ) : (
@@ -1056,6 +1063,11 @@ export function WebApp() {
           </View>
         </View>
       )}
+      {!!customerEditId && user && <Sheet title="Sửa khách hàng" onClose={() => setCustomerEditId('')}>
+        <CustomerEdit key={customerEditId} actorId={user.id} customerId={customerEditId} onSaved={() => {
+          setCustomerEditId(''); refresh(value => value + 1); setNotice('Đã lưu khách hàng.');
+        }} />
+      </Sheet>}
       {baoDialog && <BaoDialog key={`${baoDialog.action}-${baoDialog.id || ''}`} action={baoDialog.action} targetId={baoDialog.id} userId={user?.id} onClose={() => setBaoDialog(null)} onSaved={() => {
         setBaoDialog(null); refresh(v => v + 1); setNotice('Đã lưu dữ liệu cục bộ.');
         const current = db.invoices.find(i => i.id === draftId); if (current) setCustomer(current.customerId || '');
@@ -1198,7 +1210,11 @@ export function WebApp() {
           ) : modal === "Xóa hóa đơn" ? (
             <View style={{gap:18}}><Text style={ui.text}>Xóa hóa đơn {db.invoices.find(v => v.id === form.id)?.invoiceCode}? Thao tác này sẽ bỏ đơn khỏi danh sách.</Text><View style={ui.row}><Button onPress={() => setModal("")}>Giữ lại</Button><Button primary onPress={() => { try { deleteUnpaidInvoice(user!.id,form.id); if(draftId===form.id){setDraftId('');setCart({});setCustomer('');setVoucher('');} setModal('');setNotice('Đã xóa hóa đơn.');refresh(v=>v+1); } catch(e){setNotice((e as Error).message);} }}>Xác nhận xóa</Button></View></View>
           ) : modal === "Hồ sơ khách hàng" ? (
-            <MemberDashboard customer={db.customers.find(v => v.id === form.id)!} />
+            db.customers.some(v => v.id === form.id) ? <View style={{ gap: 18 }}>
+              <Button onPress={() => { setCustomerEditId(form.id); setModal(''); }}>Sửa khách hàng</Button>
+              <CustomerAppointments key={form.id} actorId={user!.id} customerId={form.id} onChanged={message => { refresh(value => value + 1); setNotice(message); }} />
+              <MemberDashboard key={`${form.id}-${revision}`} customer={db.customers.find(v => v.id === form.id)!} />
+            </View> : <Text style={ui.error}>Khách hàng không tồn tại.</Text>
           ) : (
             (() => {
               const v = db.invoices.find((v) => v.id === form.id);

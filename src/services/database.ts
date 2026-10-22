@@ -1,10 +1,11 @@
 // src/services/database.ts
 // Local Database & State Persistence cho hệ thống quản lý bán kính thời trang
 
-import { User, Employee, Category, Product, Voucher, Customer, Invoice, PaymentRecord, StockMovement } from '../contracts/domain';
+import { User, Employee, Category, Product, Voucher, Customer, Invoice, PaymentRecord, StockMovement, CustomerAppointment } from '../contracts/domain';
 import sharedDatabase from '../../data/local-database.json';
 
 interface DatabaseSchema {
+  appointments: CustomerAppointment[];
   importKeys: string[];
   payments: PaymentRecord[];
   stockMovements: StockMovement[];
@@ -18,6 +19,7 @@ interface DatabaseSchema {
 }
 
 const initialDatabase: DatabaseSchema = {
+  appointments: [],
   importKeys: [], payments: [], stockMovements: [],
   users: [
     {
@@ -224,7 +226,7 @@ class Database {
   }
 
   private normalize(data: Partial<DatabaseSchema>): DatabaseSchema {
-    return { ...data, importKeys: data.importKeys || [], payments: data.payments || [], stockMovements: data.stockMovements || [] } as DatabaseSchema;
+    return { ...data, appointments: Array.isArray(data.appointments) ? data.appointments : [], importKeys: data.importKeys || [], payments: data.payments || [], stockMovements: data.stockMovements || [] } as DatabaseSchema;
   }
 
   private save() {
@@ -248,6 +250,7 @@ class Database {
     this.save();
   }
   public get importKeys() { return this.data.importKeys; }
+  public get appointments() { return this.data.appointments; }
   public get payments() { return this.data.payments; }
   public get stockMovements() { return this.data.stockMovements; }
 

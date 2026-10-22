@@ -83,6 +83,18 @@ export interface Customer {
   updatedAt: string;
 }
 
+export interface CustomerAppointment {
+  id: string;
+  customerId: string;
+  scheduledAt: string;
+  notes: string;
+  status: 'scheduled' | 'completed' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+}
+
 export type VoucherDiscountType = 'percentage' | 'fixed';
 
 export interface Voucher {
