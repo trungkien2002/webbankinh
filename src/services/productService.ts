@@ -27,6 +27,7 @@ export interface SearchProductFilter {
   brand?: string;
   shape?: string;
   color?: string;
+  material?: string;
   minPrice?: number;
   maxPrice?: number;
   inStockOnly?: boolean;
@@ -49,7 +50,18 @@ export class ProductService {
     if(!db.categories.some(c=>c.id===input.categoryId&&!c.isDeleted))return {success:false,error:'Phân loại không hợp lệ.'};
     if(!Number.isFinite(input.price)||input.price<0||!Number.isInteger(input.stock)||input.stock<0)return {success:false,error:'Giá và tồn kho phải hợp lệ, không âm; tồn kho là số nguyên.'};
     try {
-      db.transaction(data=>{const target=data.products.find(p=>p.id===productId)!;Object.assign(target,{sku,name,categoryId:input.categoryId,productType:input.productType,price:input.price,stock:input.stock,brand:input.brand?.trim(),imageUrl:input.imageUrl,imageOverride:product.imageOverride||input.imageUrl!==product.imageUrl,updatedAt:new Date().toISOString()});});
+      db.transaction(data => {
+        const target = data.products.find(p => p.id === productId)!;
+        Object.assign(target, { sku, name, categoryId: input.categoryId, productType: input.productType,
+          price: input.price, stock: input.stock, updatedAt: new Date().toISOString() });
+        for (const field of ['brand', 'color', 'material', 'shape'] as const) {
+          if (input[field] !== undefined) target[field] = input[field]?.trim();
+        }
+        if (input.imageUrl !== undefined) {
+          target.imageUrl = input.imageUrl;
+          target.imageOverride = product.imageOverride || input.imageUrl !== product.imageUrl;
+        }
+      });
       return {success:true,data:db.products.find(p=>p.id===productId)};
     }catch{return {success:false,error:'Không thể lưu sản phẩm.'};}
   }
@@ -171,6 +183,11 @@ export class ProductService {
     if (filter.color) {
       const c = filter.color.trim().toLowerCase();
       result = result.filter(p => p.color && p.color.toLowerCase().includes(c));
+    }
+
+    if (filter.material) {
+      const material = filter.material.trim().toLowerCase();
+      result = result.filter(p => p.material?.toLowerCase().includes(material));
     }
 
     if (typeof filter.minPrice === 'number') {
