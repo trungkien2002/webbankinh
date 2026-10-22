@@ -27,6 +27,7 @@ export interface SearchProductFilter {
   brand?: string;
   shape?: string;
   color?: string;
+  material?: string;
   minPrice?: number;
   maxPrice?: number;
   inStockOnly?: boolean;
@@ -146,7 +147,8 @@ export class ProductService {
         p =>
           p.name.toLowerCase().includes(q) ||
           p.sku.toLowerCase().includes(q) ||
-          (p.barcode && p.barcode.toLowerCase().includes(q))
+          (p.barcode && p.barcode.toLowerCase().includes(q)) ||
+          (p.brand && p.brand.toLowerCase().includes(q))
       );
     }
 
@@ -161,6 +163,11 @@ export class ProductService {
     if (filter.brand) {
       const b = filter.brand.trim().toLowerCase();
       result = result.filter(p => p.brand && p.brand.toLowerCase() === b);
+    }
+
+    if (filter.material) {
+      const m = filter.material.trim().toLowerCase();
+      result = result.filter(p => p.material && p.material.toLowerCase() === m);
     }
 
     if (filter.shape) {

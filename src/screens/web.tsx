@@ -118,12 +118,20 @@ export function WebApp() {
   const [sort, setSort] = useState('name');
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [brandFilter, setBrandFilter] = useState("");
+  const [shapeFilter, setShapeFilter] = useState("");
+  const [materialFilter, setMaterialFilter] = useState("");
+  const [voucherStatusFilter, setVoucherStatusFilter] = useState<"all" | "active" | "upcoming" | "expired" | "disabled">("all");
+  const [productionStatus, setProductionStatus] = useState<string>("all");
   const products = productService.searchProducts({
     query,
     categoryId: category || undefined,
+    brand: brandFilter || undefined,
+    shape: shapeFilter || undefined,
+    material: materialFilter || undefined,
   }).filter(p => stockFilter === 'all' || (stockFilter === 'available' ? p.stock > 0 : p.stock === 0))
     .sort((a, b) => sort === 'price-asc' ? a.price - b.price || a.id.localeCompare(b.id) : sort === 'price-desc' ? b.price - a.price || a.id.localeCompare(b.id) : a.name.localeCompare(b.name, 'vi') || a.id.localeCompare(b.id));
-  useEffect(() => setProductPage(1), [query, category, section]);
+  useEffect(() => setProductPage(1), [query, category, section, brandFilter, shapeFilter, materialFilter]);
   useEffect(() => setProductPage(1), [stockFilter, sort]);
   useEffect(() => {
     if (!user) return;
@@ -134,6 +142,9 @@ export function WebApp() {
     }, 1500);
     return () => clearInterval(timer);
   }, [user]);
+  const availableBrands = Array.from(new Set(db.products.filter(p => !p.isDeleted && p.brand).map(p => p.brand!))).sort((a,b)=>a.localeCompare(b,'vi'));
+  const availableShapes = Array.from(new Set(db.products.filter(p => !p.isDeleted && p.shape).map(p => p.shape!))).sort((a,b)=>a.localeCompare(b,'vi'));
+  const availableMaterials = Array.from(new Set(db.products.filter(p => !p.isDeleted && p.material).map(p => p.material!))).sort((a,b)=>a.localeCompare(b,'vi'));
   const totalPages = Math.max(1, Math.ceil(products.length / (section === "Bán hàng tại quầy" ? 6 : 12)));
   const currentPage = Math.min(productPage, totalPages);
   const visibleProducts = products.slice(
@@ -214,7 +225,7 @@ export function WebApp() {
     setSection(name);
     setQuery("");
     setCategory("");
-    setStockFilter('all'); setSort('name');
+    setStockFilter('all'); setSort('name'); setBrandFilter(''); setShapeFilter(''); setMaterialFilter(''); setVoucherStatusFilter('all'); setProductionStatus('all'); setFrom(''); setTo('');
     setNotice("");
   };
   const submitOrder = (paid: boolean) => {
@@ -298,13 +309,58 @@ export function WebApp() {
         brand: form.brand,
         currentActorRole: user!.role,
       });
-    else
+    else {
+      let initialPrescription = undefined;
+      if (form.hasPrescription === 'yes') {
+        const pKeys = ['sphereRight', 'sphereLeft', 'cylinderRight', 'cylinderLeft', 'axisRight', 'axisLeft', 'pupillaryDistance'];
+        if (pKeys.some(k => !form[k]?.trim())) {
+          setNotice("Vui lòng nhập đủ thông số SPH, CYL, AXIS cho cả 2 mắt và PD.");
+          return;
+        }
+        const sphR = Number(form.sphereRight), sphL = Number(form.sphereLeft);
+        const cylR = Number(form.cylinderRight), cylL = Number(form.cylinderLeft);
+        const axR = Number(form.axisRight), axL = Number(form.axisLeft);
+        const pd = Number(form.pupillaryDistance);
+        if ([sphR, sphL, cylR, cylL, axR, axL, pd].some(v => isNaN(v))) {
+          setNotice("Thông số đo mắt phải là số hợp lệ.");
+          return;
+        }
+        if (sphR < -30 || sphR > 30 || sphL < -30 || sphL > 30) {
+          setNotice("Độ cầu (SPH) phải trong khoảng -30 đến +30 diop.");
+          return;
+        }
+        if (cylR < -10 || cylR > 10 || cylL < -10 || cylL > 10) {
+          setNotice("Độ trụ (CYL) phải trong khoảng -10 đến +10 diop.");
+          return;
+        }
+        if (axR < 0 || axR > 180 || axL < 0 || axL > 180) {
+          setNotice("Trục (AXIS) phải trong khoảng 0 đến 180 độ.");
+          return;
+        }
+        if (pd < 40 || pd > 80) {
+          setNotice("Khoảng cách đồng tử (PD) phải trong khoảng 40 đến 80 mm.");
+          return;
+        }
+        initialPrescription = {
+          sphereRight: sphR,
+          cylinderRight: cylR,
+          axisRight: axR,
+          sphereLeft: sphL,
+          cylinderLeft: cylL,
+          axisLeft: axL,
+          pupillaryDistance: pd,
+          measuredAt: form.measuredAt || new Date().toISOString().split('T')[0],
+          notes: form.prescNotes || undefined,
+        };
+      }
       result = customerService.addCustomer({
         fullName: form.fullName || "",
         phone: form.phone || "",
         email: form.email,
         address: form.address,
+        prescription: initialPrescription,
       });
+    }
     if (!result.success) {
       setNotice(result.error || "Vui lòng kiểm tra thông tin.");
       return;
@@ -775,8 +831,11 @@ export function WebApp() {
                     />
                     <View style={{flexDirection:'row',flexWrap:'wrap',gap:12,marginBottom:14}}>
                       <View style={{flex:1,minWidth:140}}><Text style={ui.label}>Phân loại</Text><select aria-label="Lọc phân loại tại quầy" value={category} onChange={e=>setCategory(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="">Tất cả</option>{db.categories.filter(c=>!c.isDeleted).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></View>
-                      <View style={{flex:1,minWidth:120}}><Text style={ui.label}>Tồn kho</Text><select aria-label="Lọc tồn kho tại quầy" value={stockFilter} onChange={e=>setStockFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="all">Tất cả</option><option value="available">Còn hàng</option><option value="empty">Hết hàng</option></select></View>
-                      <View style={{flex:1,minWidth:130}}><Text style={ui.label}>Sắp xếp</Text><select aria-label="Sắp xếp tại quầy" value={sort} onChange={e=>setSort(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="name">Tên A–Z</option><option value="price-asc">Giá tăng</option><option value="price-desc">Giá giảm</option></select></View>
+                      <View style={{flex:1,minWidth:120}}><Text style={ui.label}>Thương hiệu</Text><select aria-label="Lọc thương hiệu tại quầy" value={brandFilter} onChange={e=>setBrandFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="">Tất cả</option>{availableBrands.map(b=><option key={b} value={b}>{b}</option>)}</select></View>
+                      <View style={{flex:1,minWidth:110}}><Text style={ui.label}>Dáng mắt</Text><select aria-label="Lọc dáng mắt tại quầy" value={shapeFilter} onChange={e=>setShapeFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="">Tất cả</option>{availableShapes.map(s=><option key={s} value={s}>{s}</option>)}</select></View>
+                      <View style={{flex:1,minWidth:110}}><Text style={ui.label}>Chất liệu</Text><select aria-label="Lọc chất liệu tại quầy" value={materialFilter} onChange={e=>setMaterialFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="">Tất cả</option>{availableMaterials.map(m=><option key={m} value={m}>{m}</option>)}</select></View>
+                      <View style={{flex:1,minWidth:110}}><Text style={ui.label}>Tồn kho</Text><select aria-label="Lọc tồn kho tại quầy" value={stockFilter} onChange={e=>setStockFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="all">Tất cả</option><option value="available">Còn hàng</option><option value="empty">Hết hàng</option></select></View>
+                      <View style={{flex:1,minWidth:110}}><Text style={ui.label}>Sắp xếp</Text><select aria-label="Sắp xếp tại quầy" value={sort} onChange={e=>setSort(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="name">Tên A–Z</option><option value="price-asc">Giá tăng</option><option value="price-desc">Giá giảm</option></select></View>
                     </View>
                     {productCards}
                   </View>
@@ -838,8 +897,14 @@ export function WebApp() {
                       )}
                   </View>
                   {section === "Sản phẩm" ? (<>
-                    <Choice label="Tồn kho" value={stockFilter} onChange={setStockFilter} options={[{ label: 'Tất cả', value: 'all' }, { label: 'Còn hàng', value: 'available' }, { label: 'Hết hàng', value: 'empty' }]} />
-                    <Choice label="Sắp xếp" value={sort} onChange={setSort} options={[{ label: 'Tên', value: 'name' }, { label: 'Giá tăng', value: 'price-asc' }, { label: 'Giá giảm', value: 'price-desc' }]} />
+                    <View style={{flexDirection:'row',flexWrap:'wrap',gap:12,marginBottom:14}}>
+                      <View style={{flex:1,minWidth:130}}><Text style={ui.label}>Phân loại</Text><select aria-label="Lọc phân loại" value={category} onChange={e=>setCategory(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="">Tất cả</option>{db.categories.filter(c=>!c.isDeleted).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></View>
+                      <View style={{flex:1,minWidth:130}}><Text style={ui.label}>Thương hiệu</Text><select aria-label="Lọc thương hiệu" value={brandFilter} onChange={e=>setBrandFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="">Tất cả</option>{availableBrands.map(b=><option key={b} value={b}>{b}</option>)}</select></View>
+                      <View style={{flex:1,minWidth:120}}><Text style={ui.label}>Dáng mắt</Text><select aria-label="Lọc dáng mắt" value={shapeFilter} onChange={e=>setShapeFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="">Tất cả</option>{availableShapes.map(s=><option key={s} value={s}>{s}</option>)}</select></View>
+                      <View style={{flex:1,minWidth:120}}><Text style={ui.label}>Chất liệu</Text><select aria-label="Lọc chất liệu" value={materialFilter} onChange={e=>setMaterialFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="">Tất cả</option>{availableMaterials.map(m=><option key={m} value={m}>{m}</option>)}</select></View>
+                      <View style={{flex:1,minWidth:110}}><Text style={ui.label}>Tồn kho</Text><select aria-label="Lọc tồn kho" value={stockFilter} onChange={e=>setStockFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="all">Tất cả</option><option value="available">Còn hàng</option><option value="empty">Hết hàng</option></select></View>
+                      <View style={{flex:1,minWidth:110}}><Text style={ui.label}>Sắp xếp</Text><select aria-label="Sắp xếp" value={sort} onChange={e=>setSort(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="name">Tên A–Z</option><option value="price-asc">Giá tăng</option><option value="price-desc">Giá giảm</option></select></View>
+                    </View>
                     <Table
                       key={`${query}-${stockFilter}-${sort}`}
                       headings={["Sản phẩm", "Giá bán", "Tồn kho", "Phân loại", "Thao tác"]}
@@ -884,44 +949,117 @@ export function WebApp() {
                     />
                   ) : section === "Hóa đơn" ? (
                     <>
-                      <View style={ui.row}>
-                        <Field
-                          label="Từ ngày (YYYY-MM-DD)"
-                          value={from}
-                          onChange={setFrom}
-                        />
-                        <Field
-                          label="Đến ngày (YYYY-MM-DD)"
-                          value={to}
-                          onChange={setTo}
-                        />
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
+                        <View style={{ flex: 1, minWidth: 160 }}>
+                          <Text style={ui.label}>Từ ngày</Text>
+                          <input
+                            type="date"
+                            aria-label="Từ ngày hóa đơn"
+                            value={from}
+                            onChange={(e) => {
+                              const newFrom = e.target.value;
+                              if (to && newFrom > to) {
+                                setNotice("Từ ngày không được lớn hơn đến ngày.");
+                              } else {
+                                setFrom(newFrom);
+                              }
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: 11,
+                              border: "1px solid #cad5c5",
+                              borderRadius: 8,
+                              background: "#fff",
+                              color: "#284e43",
+                              fontFamily: "inherit",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 160 }}>
+                          <Text style={ui.label}>Đến ngày</Text>
+                          <input
+                            type="date"
+                            aria-label="Đến ngày hóa đơn"
+                            value={to}
+                            onChange={(e) => {
+                              const newTo = e.target.value;
+                              if (from && newTo < from) {
+                                setNotice("Đến ngày không được nhỏ hơn từ ngày.");
+                              } else {
+                                setTo(newTo);
+                              }
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: 11,
+                              border: "1px solid #cad5c5",
+                              borderRadius: 8,
+                              background: "#fff",
+                              color: "#284e43",
+                              fontFamily: "inherit",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                        </View>
+                        {(from || to) && (
+                          <View style={{ alignSelf: 'flex-end', marginBottom: 2 }}>
+                            <Button onPress={() => { setFrom(''); setTo(''); }}>Xóa ngày</Button>
+                          </View>
+                        )}
                       </View>
-                      <Choice
-                        value={status}
-                        onChange={setStatus}
-                        options={[
-                          { label: "Tất cả", value: "all" },
-                          { label: "Chờ thanh toán", value: "pending" },
-                          { label: "Đã thanh toán", value: "paid" },
-                          { label: 'Đơn nháp', value: 'draft' },
-                          { label: 'Đã hủy', value: 'cancelled' },
-                        ]}
-                      />
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+                        <View style={{ flex: 1, minWidth: 160 }}>
+                          <Choice
+                            label="Thanh toán"
+                            value={status}
+                            onChange={setStatus}
+                            options={[
+                              { label: "Tất cả", value: "all" },
+                              { label: "Chờ thanh toán", value: "pending" },
+                              { label: "Đã thanh toán", value: "paid" },
+                              { label: 'Đơn nháp', value: 'draft' },
+                              { label: 'Đã hủy', value: 'cancelled' },
+                            ]}
+                          />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 160 }}>
+                          <Choice
+                            label="Tiến độ mài lắp kính"
+                            value={productionStatus}
+                            onChange={setProductionStatus}
+                            options={[
+                              { label: "Tất cả", value: "all" },
+                              { label: "Không gia công", value: "none" },
+                              { label: "Đang cắt tròng", value: "cutting_lens" },
+                              { label: "Hoàn tất", value: "completed" },
+                              { label: "Đã giao", value: "delivered" },
+                            ]}
+                          />
+                        </View>
+                      </View>
                       <Table
                         headings={[
                           "Hóa đơn",
                           "Khách hàng",
                           "Thành tiền",
-                          "Trạng thái",
+                          "Thanh toán",
+                          "Mài lắp",
                           "Thao tác",
                         ]}
-                        rows={invoiceService
-                          .filterInvoices({
-                            searchQuery: query,
-                            fromDate: from || undefined,
-                            toDate: to || undefined,
-                            paymentStatus: status as "all" | "paid" | "pending" | 'draft' | 'cancelled',
-                          })
+                        rows={(() => {
+                          try {
+                            return invoiceService.filterInvoices({
+                              searchQuery: query,
+                              fromDate: from || undefined,
+                              toDate: to || undefined,
+                              paymentStatus: status as "all" | "paid" | "pending" | 'draft' | 'cancelled',
+                              productionStatus: productionStatus as any,
+                            });
+                          } catch (e) {
+                            return [];
+                          }
+                        })()
                           .map((v) => [
                             v.invoiceCode,
                             v.customerName || "Khách vãng lai",
@@ -929,6 +1067,7 @@ export function WebApp() {
                             v.paymentStatus === "paid"
                               ? "Đã thanh toán"
                               : v.paymentStatus === 'draft' ? 'Đơn nháp' : v.paymentStatus === 'cancelled' ? 'Đã hủy' : "Chờ thanh toán",
+                            v.productionStatus === 'cutting_lens' ? 'Đang cắt tròng' : v.productionStatus === 'completed' ? 'Hoàn tất' : v.productionStatus === 'delivered' ? 'Đã giao' : 'Không gia công',
                             <View style={ui.row}>
                               <Button
                                 onPress={() => {
@@ -957,20 +1096,35 @@ export function WebApp() {
                       />
                     </>
                   ) : section === "Voucher" ? (
-                    <Table
-                      headings={[
-                        "Mã ưu đãi",
-                        "Tên",
-                        "Giảm giá",
-                        "Hiệu lực",
-                        "Thao tác",
-                      ]}
-                      rows={db.vouchers
-                        .filter((v) =>
-                          (v.code + v.name)
-                            .toLowerCase()
-                            .includes(query.toLowerCase()),
-                        )
+                    <>
+                      <View style={{ marginBottom: 14 }}>
+                        <Choice
+                          label="Trạng thái voucher"
+                          value={voucherStatusFilter}
+                          onChange={(val) => setVoucherStatusFilter(val as any)}
+                          options={[
+                            { label: "Tất cả", value: "all" },
+                            { label: "Đang áp dụng", value: "active" },
+                            { label: "Sắp áp dụng", value: "upcoming" },
+                            { label: "Hết hạn", value: "expired" },
+                            { label: "Vô hiệu hóa", value: "disabled" },
+                          ]}
+                        />
+                      </View>
+                      <Table
+                        headings={[
+                          "Mã ưu đãi",
+                          "Tên",
+                          "Giảm giá",
+                          "Hiệu lực",
+                          "Trạng thái",
+                          "Thao tác",
+                        ]}
+                        rows={voucherService
+                          .filterVouchers({
+                            query,
+                            status: voucherStatusFilter,
+                          })
                         .map((v) => [
                           v.code,
                           v.name,
@@ -978,6 +1132,10 @@ export function WebApp() {
                             ? `${v.discountValue}%`
                             : money(v.discountValue),
                           `${v.startDate} → ${v.endDate}`,
+                          (() => {
+                            const st = voucherService.getVoucherStatus(v);
+                            return st === 'active' ? 'Đang áp dụng' : st === 'upcoming' ? 'Sắp áp dụng' : st === 'expired' ? 'Hết hạn' : 'Vô hiệu hóa';
+                          })(),
                           <View style={ui.row}>
                             <Button
                               onPress={() => {
@@ -1007,6 +1165,7 @@ export function WebApp() {
                           </View>,
                         ])}
                     />
+                    </>
                   ) : section === "Khách hàng" ? (
                     <Table
                       headings={[
@@ -1162,10 +1321,74 @@ export function WebApp() {
             </>
           ) : modal === "Thêm khách hàng" ? (
             <>
-              {field("fullName", "Họ và tên")}
-              {field("phone", "Số điện thoại")}
+              {field("fullName", "Họ và tên *")}
+              {field("phone", "Số điện thoại *")}
               {field("email", "Email")}
               {field("address", "Địa chỉ")}
+              <View style={{ marginVertical: 10 }}>
+                <Choice
+                  label="Thông số đo mắt ban đầu (KH001)"
+                  value={form.hasPrescription || 'no'}
+                  onChange={v => setForm({ ...form, hasPrescription: v })}
+                  options={[
+                    { label: 'Không kèm thông số', value: 'no' },
+                    { label: 'Nhập thông số đo mắt', value: 'yes' },
+                  ]}
+                />
+              </View>
+              {form.hasPrescription === 'yes' && (
+                <View style={{ gap: 14, marginTop: 4, marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+                    <View style={[ui.card, { flex: 1, minWidth: 200, padding: 14, gap: 10 }]}>
+                      <Text style={[ui.h2, { fontSize: 16, color: p.green }]}>Mắt phải (OD)</Text>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <View style={{ flex: 1 }}>{field("sphereRight", "SPH")}</View>
+                        <View style={{ flex: 1 }}>{field("cylinderRight", "CYL")}</View>
+                        <View style={{ flex: 1 }}>{field("axisRight", "AXIS")}</View>
+                      </View>
+                    </View>
+                    <View style={[ui.card, { flex: 1, minWidth: 200, padding: 14, gap: 10 }]}>
+                      <Text style={[ui.h2, { fontSize: 16, color: p.green }]}>Mắt trái (OS)</Text>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <View style={{ flex: 1 }}>{field("sphereLeft", "SPH")}</View>
+                        <View style={{ flex: 1 }}>{field("cylinderLeft", "CYL")}</View>
+                        <View style={{ flex: 1 }}>{field("axisLeft", "AXIS")}</View>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={[ui.card, { padding: 14, gap: 10 }]}>
+                    <Text style={[ui.h2, { fontSize: 16 }]}>Thông tin lần đo</Text>
+                    <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+                      <View style={{ flex: 1, minWidth: 160 }}>
+                        {field("pupillaryDistance", "PD · Khoảng cách đồng tử (mm)")}
+                      </View>
+                      <View style={{ flex: 1, minWidth: 160 }}>
+                        <Text style={ui.label}>Ngày đo</Text>
+                        <input
+                          type="date"
+                          aria-label="Ngày đo mắt ban đầu"
+                          value={form.measuredAt || new Date().toISOString().split('T')[0]}
+                          onChange={(e) => setForm({ ...form, measuredAt: e.target.value })}
+                          style={{
+                            width: "100%",
+                            padding: 11,
+                            border: "1px solid #cad5c5",
+                            borderRadius: 8,
+                            background: "#fff",
+                            color: "#284e43",
+                            fontFamily: "inherit",
+                            boxSizing: "border-box",
+                          }}
+                        />
+                      </View>
+                    </View>
+                    {field("prescNotes", "Ghi chú lần đo")}
+                    <Text style={[ui.muted, { fontSize: 12 }]}>
+                      Giới hạn: SPH -30...+30 · CYL -10...+10 · AXIS 0...180° · PD 40...80 mm.
+                    </Text>
+                  </View>
+                </View>
+              )}
               <Button primary onPress={save}>
                 Lưu khách hàng
               </Button>

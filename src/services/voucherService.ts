@@ -15,6 +15,7 @@ export interface UpdateVoucherInput {
   endDate?: string;
   isActive?: boolean;
   currentActorRole: 'admin' | 'employee';
+  currentDateStr?: string; // Tùy chọn truyền ngày để test cố định thời gian
 }
 
 export interface ApplyVoucherInput {
@@ -59,6 +60,28 @@ export class VoucherService {
     }
 
     const currentVoucher = vouchers[index];
+
+    // VC002 Checklist: Chặn sửa voucher đã hết hạn (chỉ cho phép toggle isActive nếu cần)
+    const now = input.currentDateStr ? new Date(input.currentDateStr) : new Date();
+    const currentEnd = new Date(currentVoucher.endDate + 'T23:59:59');
+    const isExpired = now > currentEnd;
+
+    // Nếu sửa các thông số nội dung (tên, mức giảm, hạn sử dụng, điều kiện) mà voucher đã hết hạn -> Báo lỗi
+    const isEditingContent =
+      (input.name !== undefined && input.name !== currentVoucher.name) ||
+      (input.discountType !== undefined && input.discountType !== currentVoucher.discountType) ||
+      (input.discountValue !== undefined && input.discountValue !== currentVoucher.discountValue) ||
+      (input.minOrderValue !== undefined && input.minOrderValue !== currentVoucher.minOrderValue) ||
+      (input.maxDiscountAmount !== undefined && input.maxDiscountAmount !== currentVoucher.maxDiscountAmount) ||
+      (input.startDate !== undefined && input.startDate !== currentVoucher.startDate) ||
+      (input.endDate !== undefined && input.endDate !== currentVoucher.endDate);
+
+    if (isExpired && isEditingContent) {
+      return {
+        success: false,
+        error: `Không thể sửa nội dung voucher đã hết hạn sử dụng (hết hạn ngày ${currentVoucher.endDate}).`,
+      };
+    }
 
     // Validate Discount value
     const discountType = input.discountType || currentVoucher.discountType;
@@ -176,6 +199,39 @@ export class VoucherService {
 
   public getAllVouchers(): Voucher[] {
     return db.vouchers;
+  }
+
+  /**
+   * VC003: Lấy trạng thái suy diễn của voucher
+   * - 'disabled': Vô hiệu hóa (isActive === false)
+   * - 'expired': Hết hạn (now > endDate)
+   * - 'upcoming': Sắp áp dụng (now < startDate)
+   * - 'active': Đang áp dụng (startDate <= now <= endDate && isActive)
+   * Thống nhất ưu tiên: Nếu vừa vô hiệu vừa hết hạn -> ưu tiên 'disabled' (Vô hiệu hóa) hoặc có thể lọc chính xác
+   */
+  public getVoucherStatus(voucher: Voucher, currentDateStr?: string): 'active' | 'upcoming' | 'expired' | 'disabled' {
+    if (!voucher.isActive) return 'disabled';
+    const now = currentDateStr ? new Date(currentDateStr) : new Date();
+    const start = new Date(voucher.startDate + 'T00:00:00');
+    const end = new Date(voucher.endDate + 'T23:59:59');
+    if (now < start) return 'upcoming';
+    if (now > end) return 'expired';
+    return 'active';
+  }
+
+  /**
+   * VC003: Lọc voucher theo từ khóa và trạng thái
+   */
+  public filterVouchers(filter: { query?: string; status?: 'all' | 'active' | 'upcoming' | 'expired' | 'disabled' }, currentDateStr?: string): Voucher[] {
+    let list = db.vouchers;
+    if (filter.query) {
+      const q = filter.query.trim().toLowerCase();
+      list = list.filter(v => (v.code + ' ' + v.name).toLowerCase().includes(q));
+    }
+    if (filter.status && filter.status !== 'all') {
+      list = list.filter(v => this.getVoucherStatus(v, currentDateStr) === filter.status);
+    }
+    return list;
   }
 }
 

@@ -128,9 +128,24 @@ export class InvoiceService {
   }
 
   /**
+   * Kiểm tra khoảng ngày hợp lệ
+   */
+  public validateDateRange(fromDate?: string, toDate?: string): { valid: boolean; error?: string } {
+    if (fromDate && toDate && fromDate > toDate) {
+      return { valid: false, error: 'Từ ngày không được lớn hơn đến ngày.' };
+    }
+    return { valid: true };
+  }
+
+  /**
    * HD004: Lọc hóa đơn theo thời gian, trạng thái thanh toán và trạng thái mài lắp
    */
   public filterInvoices(filter: FilterInvoiceInput): Invoice[] {
+    const dateCheck = this.validateDateRange(filter.fromDate, filter.toDate);
+    if (!dateCheck.valid) {
+      throw new Error(dateCheck.error);
+    }
+
     let result = db.invoices;
 
     // 1. Lọc theo trạng thái thanh toán
