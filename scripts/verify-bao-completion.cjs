@@ -1,11 +1,11 @@
-// Run prepare-bao-completion-preview.cjs and build:web in its preview directory first.
+// Run npm run build:web first. Verifies the actual integrated application.
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 const assert = require('node:assert/strict');
 const repo = path.resolve(__dirname, '..');
-const root = path.join(path.dirname(repo), 'bao-completion-preview');
+const root = repo;
 const output = path.join(path.dirname(repo), 'bao-completion-results');
 fs.mkdirSync(output, { recursive: true });
 const pause = ms => new Promise(r => setTimeout(r, ms));
@@ -36,7 +36,7 @@ async function main() {
   const call = (method, params = {}) => new Promise((resolve, reject) => { const id = ++sequence; pending.set(id, { resolve, reject }); ws.send(JSON.stringify({ id, method, params })); });
   const evaluate = async expression => { const value = await call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (value.exceptionDetails) throw new Error(value.exceptionDetails.exception?.description || value.exceptionDetails.text); return value.result.value; };
   const wait = async expression => { for (let i = 0; i < 120; i++) { if (await evaluate(expression)) return; await pause(100); } throw new Error('Timeout: ' + expression); };
-  const click = async (label, index = 0) => { await evaluate(`(() => { const el=[...document.querySelectorAll('[role="button"]')].filter(e=>e.getAttribute('aria-label')===${JSON.stringify(label)}||e.innerText.trim()===${JSON.stringify(label)})[${index}];if(!el)throw new Error('Missing button: '+${JSON.stringify(label)});el.click(); })()`); await pause(220); };
+  const click = async (label, index = 0) => { await evaluate(`(() => { const scope=[...document.querySelectorAll('[aria-modal="true"]')].at(-1)||document; const el=[...scope.querySelectorAll('[role="button"]')].filter(e=>e.getAttribute('aria-label')===${JSON.stringify(label)}||e.innerText.trim()===${JSON.stringify(label)})[${index}];if(!el)throw new Error('Missing button: '+${JSON.stringify(label)});el.click(); })()`); await pause(220); };
   const fill = async (label, value) => { await evaluate(`(() => { const el=[...document.querySelectorAll('input,textarea')].filter(e=>e.getAttribute('aria-label')===${JSON.stringify(label)}).at(-1);if(!el)throw new Error('Missing input: '+${JSON.stringify(label)});Object.getOwnPropertyDescriptor(el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true})); })()`); await pause(110); };
   const text = value => wait(`document.body.innerText.includes(${JSON.stringify(value)})`);
   const data = () => evaluate(`JSON.parse(localStorage.getItem('webbankinh_db'))`);
@@ -74,6 +74,9 @@ async function main() {
   assert.equal((await data()).users.find(u => u.id === 'USR002').isActive, false);
   await click('Mở khóa'); await click('Xác nhận');
   assert.equal((await data()).users.find(u => u.id === 'USR002').isActive, true);
+  await fill('Lọc ca làm', ''); await fill('Tìm kiếm', '0901234567'); await click('Khóa tài khoản'); await click('Xác nhận');
+  await text('Không thể khóa quản trị viên cuối cùng.'); await click('Đóng');
+  assert.equal((await data()).users.find(u => u.id === 'USR001').isActive, true);
   pass('NV003 confirmed lock/unlock preserves records');
   await fill('Tìm kiếm', '999999'); await text('Chưa có dữ liệu phù hợp.');
   await fill('Tìm kiếm', ''); await fill('Lọc ca làm', ''); await click('Trang sau');
@@ -89,13 +92,32 @@ async function main() {
   assert(!(await evaluate(`document.body.innerText`)).includes('Xác nhận xóa')); await click('Đóng');
   await fill('Tìm kiếm', ''); await click('Chờ thanh toán'); await text('Đã thu: 0');
   await click('Xóa', 0); await text('Xóa hóa đơn'); await click('Đóng');
+  const invoiceCount = (await data()).invoices.length;
+  await click('Xóa', 0); await click('Xác nhận xóa');
+  assert.equal((await data()).invoices.length, invoiceCount - 1);
+  assert.equal((await data()).invoices.filter(i => i.paymentStatus === 'paid').length, 14);
+  const pendingInvoice = (await data()).invoices.find(i => i.paymentStatus === 'pending');
+  await click('Mở tại quầy', 0); await text(pendingInvoice.invoiceCode); await click('Hóa đơn');
   pass('HD001 VN date, all-page paid revenue, status/query reset and existing detail/delete actions');
   await click('Sản phẩm'); await click('Sửa', 0);
   await fill('Màu sắc', 'Xanh demo'); await fill('Chất liệu', 'Titan demo'); await fill('Dáng kính', 'Tròn demo'); await click('Lưu sản phẩm');
   const product = (await data()).products.find(p => p.color === 'Xanh demo'); assert(product);
-  await click('Sửa', 0); await fill('Giá bán', String(product.price + 100)); await click('Lưu sản phẩm');
+  assert.equal((await data()).productPriceChanges.length, 0);
+  await click('Sửa', 0); await fill('Giá bán', '-1'); await click('Lưu sản phẩm'); await text('Giá và tồn kho');
+  assert.equal((await data()).productPriceChanges.length, 0);
+  await fill('Giá bán', String(product.price + 100)); await click('Lưu sản phẩm');
   assert.equal((await data()).products.find(p => p.id === product.id).material, 'Titan demo');
-  pass('SP002 fields bind/save and remain on price-only edit; price ledger still awaiting model');
+  assert.equal((await data()).productPriceChanges.length, 1);
+  assert.equal((await data()).productPriceChanges[0].oldPrice, product.price);
+  assert.equal((await data()).productPriceChanges[0].newPrice, product.price + 100);
+  assert.equal((await data()).productPriceChanges[0].changedBy, 'USR001');
+  await click('Sửa', 0); await text('Lịch sử thay đổi giá'); await text('USR001');
+  await evaluate(`[...document.querySelectorAll('*')].find(e=>e.childElementCount===0&&e.textContent==='Lịch sử thay đổi giá')?.scrollIntoView({block:'center'})`);
+  await shot('price-history-desktop'); await click('Lưu sản phẩm');
+  assert.equal((await data()).productPriceChanges.length, 1);
+  await call('Page.reload'); await text('Tổng quan'); await click('Sản phẩm'); await click('Sửa', 0); await text('Lịch sử thay đổi giá'); await text('USR001'); await click('Đóng');
+  assert.equal((await data()).productPriceChanges.length, 1);
+  pass('SP002 records real actor/old/new price, no-op save creates no log, history persists after reload');
   await click('Sửa', 0); await uploadFixture(); await click('Lưu sản phẩm');
   const updatedImage=(await data()).products.find(p=>p.id===product.id).imageUrl;
   assert((await data()).products.find(p=>p.id===product.id).imageOverride);
@@ -114,8 +136,13 @@ async function main() {
   await wait(`[...document.querySelectorAll('img')].some(e=>e.src===${JSON.stringify(ownImage)})`);
   await call('Page.navigate', {url:`http://127.0.0.1:${server.address().port}/#/admin`}); await text('Tổng quan');
   pass('SP002 public product gallery uses new images after reload for catalog/custom products');
+  assert.equal((await data()).productPriceChanges.length, 1);
   await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, mobile: true, deviceScaleFactor: 1 });
   await wait(`document.body.innerText.includes('Menu quản lý')`);
+  await click('Menu quản lý'); await click('Nhân viên'); await text('Lọc ca làm'); await shot('employees-390');
+  assert(await evaluate('document.documentElement.scrollWidth<=395'));
+  await click('Menu quản lý'); await click('Hóa đơn'); await text('Đã thu:'); await shot('invoices-390');
+  assert(await evaluate('document.documentElement.scrollWidth<=395'));
   // Menu is collapsed in the approved narrow layout.
   await click('Menu quản lý'); await click('Khách hàng'); await click('Xem hồ sơ', 0); await click('Sửa khách hàng');
   await shot('customer-form-390');
@@ -123,6 +150,6 @@ async function main() {
   await click('Đóng');
   pass('390px customer form, close icon and no page overflow');
   assert.equal(errors.length, 0, errors.join('\n'));
-  fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ results, runtimeErrors: errors, scope: 'Isolated preview with integration patch; protected shared source unchanged', pending: ['KH003 appointment contract/migration', 'SP002 price-history contract/migration', 'Kien applying integration patch'] }, null, 2));
+  fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ results, runtimeErrors: errors, scope: 'Actual integrated team-repository application, including real price history', pending: [], limits: ['Native and multi-tab concurrency not tested'] }, null, 2));
 }
 main().catch(e => { console.error(e.stack); process.exitCode = 1; }).finally(async () => { if (ws) ws.close(); if (chrome) chrome.kill(); await new Promise(r => server.close(r)); });

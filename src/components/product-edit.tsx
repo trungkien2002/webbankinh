@@ -3,11 +3,12 @@ import { Text, View } from 'react-native';
 import { Product } from '../contracts/domain';
 import { db } from '../services/database';
 import { productService } from '../services/productService';
-import { Button, Choice, Field, ui } from './ui';
+import { Button, Choice, Field, Table, money, ui } from './ui';
+import { vietnamInvoiceDate } from '../services/invoice-list';
 import { SearchPicker } from './searchPicker';
 import { ImageUpload } from './imageUpload';
 
-/** SP002 fields; price-history model is intentionally pending coordinator agreement. */
+/** SP002 edits attributes and records real price changes in the shared local data. */
 export function ProductEdit({ actorId, productId, onSaved }: {
   actorId: string; productId: string; onSaved: () => void;
 }) {
@@ -32,6 +33,11 @@ export function ProductEdit({ actorId, productId, onSaved }: {
     {field('brand', 'Thương hiệu')}{field('color', 'Màu sắc')}{field('material', 'Chất liệu')}{field('shape', 'Dáng kính')}
     {field('price', 'Giá bán')}{field('stock', 'Tồn kho')}
     <ImageUpload value={form.imageUrl} onChange={value => set('imageUrl', value)} />
+    <Text style={ui.h2}>Lịch sử thay đổi giá</Text>
+    <Text style={ui.muted}>Chỉ ghi các lần đổi giá từ thao tác sửa. Dữ liệu có sẵn không được tạo lịch sử giả.</Text>
+    <Table headings={['Thời điểm (giờ VN)', 'Giá cũ', 'Giá mới', 'Người sửa']} rows={[...db.productPriceChanges].filter(change => change.productId === productId)
+      .reverse()
+      .map(change => [vietnamInvoiceDate(change.changedAt), money(change.oldPrice), money(change.newPrice), `${db.users.find(user => user.id === change.changedBy)?.username || change.changedBy} · ${change.changedBy}`])} />
     {!!error && <Text selectable accessibilityRole="alert" style={ui.error}>{error}</Text>}
     <Button primary disabled={saving} onPress={() => {
       if (guard.current) return;
@@ -39,7 +45,7 @@ export function ProductEdit({ actorId, productId, onSaved }: {
       try {
         if (!form.price.trim() || !form.stock.trim()) throw new Error('Nhập đầy đủ giá và tồn kho.');
         if (!db.users.some(u => u.id === actorId && u.isActive && u.role === 'admin')) throw new Error('Không đủ quyền sửa sản phẩm.');
-        const result = productService.updateProduct(productId, { sku: form.sku, name: form.name, categoryId: form.categoryId,
+        const result = productService.updateProduct(productId, { actorId, sku: form.sku, name: form.name, categoryId: form.categoryId,
           productType: form.productType as Product['productType'], brand: form.brand, color: form.color,
           material: form.material, shape: form.shape, price: Number(form.price), stock: Number(form.stock),
           imageUrl: form.imageUrl, currentActorRole: 'admin' });

@@ -122,10 +122,10 @@ describe('HD001 filtered invoice list', () => {
   });
 });
 
-describe('SP002 additional product fields (price ledger awaiting shared model)', () => {
+describe('SP002 additional product fields', () => {
   it('preserves omitted attributes/image on price-only edits; saves and filters explicit changes', () => {
     const product = db.products[0];
-    const initial = { ...product, color: 'Nâu', material: 'Titan', shape: 'Tròn', imageUrl: 'data:image/png;base64,AAAA', currentActorRole: 'admin' as const };
+    const initial = { ...product, actorId: 'USR001', color: 'Nâu', material: 'Titan', shape: 'Tròn', imageUrl: 'data:image/png;base64,AAAA', currentActorRole: 'admin' as const };
     expect(productService.updateProduct(product.id, initial).success).toBe(true);
     const { color, material, shape, imageUrl, ...priceOnly } = initial;
     expect(productService.updateProduct(product.id, { ...priceOnly, price: product.price + 1 }).success).toBe(true);
