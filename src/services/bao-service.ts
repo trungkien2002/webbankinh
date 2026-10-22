@@ -2,6 +2,7 @@
 import { Category, Employee, EyePrescription, Invoice, InvoiceItem, User, Voucher } from '../contracts/domain';
 import { db } from './database';
 import { voucherService } from './voucherService';
+import { ASSEMBLY_UNIT_FEE, buildDraftItems, itemQuantities } from './combo';
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -67,14 +68,8 @@ function editable(userId: string, invoiceId: string) {
   return invoice;
 }
 export function saveDraftItems(userId: string, invoiceId: string, quantities: Record<string, number>, voucherCode = '') {
-  editable(userId, invoiceId);
-  const items: InvoiceItem[] = Object.entries(quantities).map(([productId, quantity]) => {
-    const product = db.products.find(p => p.id === productId && !p.isDeleted);
-    if (!product || !Number.isInteger(quantity) || quantity <= 0 || quantity > product.stock)
-      throw new Error('Sản phẩm hoặc số lượng không hợp lệ, vượt tồn kho.');
-    return { id: `line-${productId}`, productId, productName: product.name, sku: product.sku,
-      unitPrice: product.price, quantity, lineTotal: product.price * quantity };
-  });
+  const previous = editable(userId, invoiceId);
+  const { items, combos, assemblyFee } = buildDraftItems(quantities, previous);
   if (!items.length) {
     db.transaction(data => { data.invoices = data.invoices.filter(i => i.id !== invoiceId); });
     return;
@@ -84,13 +79,49 @@ export function saveDraftItems(userId: string, invoiceId: string, quantities: Re
   if (discount && !discount.success) throw new Error(discount.error);
   db.transaction(data => {
     const invoice = data.invoices.find(i => i.id === invoiceId)!;
-    Object.assign(invoice, { items, subtotal, discountAmount: discount?.discountAmount || 0,
+    Object.assign(invoice, { items, combos, assemblyFee, subtotal, discountAmount: discount?.discountAmount || 0,
       voucherCode: discount?.voucherCode, voucherDiscountSnapshot: discount?.discountAmount || 0,
-      totalAmount: subtotal - (discount?.discountAmount || 0), updatedAt: now() });
+      totalAmount: subtotal - (discount?.discountAmount || 0) + assemblyFee, updatedAt: now() });
   });
 }
+export function addDraftCombo(userId: string, invoiceId: string, frameId: string, lensId: string, quantity: number) {
+  const invoice = editable(userId,invoiceId);
+  if (!invoice.prescription) throw new Error('Lưu khách hàng và thông số đo mắt trước khi thêm combo.');
+  validatePrescription(invoice.prescription);
+  if (!Number.isInteger(quantity) || quantity < 1) throw new Error('Số combo phải là số nguyên dương.');
+  const frame = db.products.find(p=>p.id===frameId&&!p.isDeleted&&p.productType==='Gọng kính');
+  const lens = db.products.find(p=>p.id===lensId&&!p.isDeleted&&p.productType==='Tròng kính');
+  if (!frame || !lens) throw new Error('Chọn đúng gọng kính và tròng kính còn hoạt động.');
+  const quantities = itemQuantities(invoice.items);
+  quantities[frameId] = (quantities[frameId] || 0) + quantity;
+  quantities[lensId] = (quantities[lensId] || 0) + quantity;
+  const combo = {id:id('COMBO'),frameId,lensId,quantity,framePrice:frame.price,lensPrice:lens.price,
+    assemblyUnitFee:ASSEMBLY_UNIT_FEE,prescription:JSON.parse(JSON.stringify(invoice.prescription))};
+  const result = buildDraftItems(quantities,invoice,[...(invoice.combos||[]),combo]);
+  const subtotal = result.items.reduce((s,i)=>s+i.lineTotal,0);
+  const discount = invoice.voucherCode ? voucherService.applyVoucher({voucherCode:invoice.voucherCode,subtotal}) : undefined;
+  if (discount && !discount.success) throw new Error(discount.error);
+  db.transaction(data=>Object.assign(data.invoices.find(i=>i.id===invoiceId)!, result, {subtotal,discountAmount:discount?.discountAmount||0,
+    voucherDiscountSnapshot:discount?.discountAmount||0,totalAmount:subtotal-(discount?.discountAmount||0)+result.assemblyFee,updatedAt:now()}));
+}
+export function removeDraftCombo(userId: string, invoiceId: string, comboId: string) {
+  const invoice = editable(userId,invoiceId), combo = invoice.combos?.find(c=>c.id===comboId);
+  if (!combo) throw new Error('Combo không tồn tại.');
+  const quantities = itemQuantities(invoice.items);
+  for (const id of [combo.frameId,combo.lensId]) { quantities[id] -= combo.quantity; if (!quantities[id]) delete quantities[id]; }
+  // Remove the selected allocation first when several combos share components.
+  const filtered = {...invoice,combos:invoice.combos?.filter(c=>c.id!==comboId)};
+  const result = buildDraftItems(quantities,filtered);
+  if (!result.items.length) { deleteUnpaidInvoice(userId,invoiceId); return; }
+  const subtotal = result.items.reduce((s,i)=>s+i.lineTotal,0);
+  const discount = invoice.voucherCode ? voucherService.applyVoucher({voucherCode:invoice.voucherCode,subtotal}) : undefined;
+  if (discount && !discount.success) throw new Error(discount.error);
+  db.transaction(data=>Object.assign(data.invoices.find(i=>i.id===invoiceId)!,result,{subtotal,discountAmount:discount?.discountAmount||0,
+    voucherDiscountSnapshot:discount?.discountAmount||0,totalAmount:subtotal-(discount?.discountAmount||0)+result.assemblyFee,updatedAt:now()}));
+}
 export function setDraftCustomer(userId: string, invoiceId: string, customerId: string) {
-  editable(userId, invoiceId);
+  const current = editable(userId, invoiceId);
+  if (current.combos?.length) throw new Error('Xóa combo trước khi đổi khách hàng hoặc số đo của đơn.');
   const customer = customerId ? db.customers.find(c => c.id === customerId) : undefined;
   if (customerId && !customer) throw new Error('Khách hàng không tồn tại.');
   db.transaction(data => {
@@ -113,7 +144,8 @@ export function validatePrescription(p: EyePrescription) {
   date(p.measuredAt);
 }
 export function saveMeasurement(userId: string, invoiceId: string, customerId: string, prescription?: EyePrescription) {
-  editable(userId, invoiceId);
+  const current = editable(userId, invoiceId);
+  if (current.combos?.length) throw new Error('Xóa combo trước khi đổi khách hàng hoặc số đo của đơn.');
   const customer = db.customers.find(c => c.id === customerId);
   if (!customer) throw new Error('Hãy chọn khách hàng có hồ sơ.');
   if (prescription) validatePrescription(prescription);
@@ -145,7 +177,7 @@ export function completeDraft(userId: string, invoiceId: string, paid: boolean, 
     Object.assign(target, { paymentStatus: paid ? 'paid' : 'pending', paymentMethod,
       productionStatus: target.prescription ? 'cutting_lens' : 'none', paidAt: paid ? now() : undefined, updatedAt: now(),
       discountAmount: discount?.discountAmount || 0, voucherDiscountSnapshot: discount?.discountAmount || 0,
-      totalAmount: target.subtotal - (discount?.discountAmount || 0) });
+      totalAmount: target.subtotal - (discount?.discountAmount || 0) + (target.assemblyFee || 0) });
     if (paid) {
       if (idempotencyKey) {
         if (data.payments.some(p => p.idempotencyKey === idempotencyKey)) throw new Error('Khóa thanh toán đã được sử dụng.');

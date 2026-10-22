@@ -14,7 +14,7 @@ export function ProductEdit({ actorId, productId, onSaved }: {
 }) {
   const product = db.products.find(p => p.id === productId && !p.isDeleted);
   const [form, setForm] = useState<Record<string, string>>(() => Object.fromEntries(
-    ['sku', 'name', 'categoryId', 'productType', 'brand', 'color', 'material', 'shape', 'price', 'stock', 'imageUrl']
+    ['sku', 'name', 'categoryId', 'productType', 'brand', 'color', 'material', 'shape', 'price', 'stock', 'imageUrl', 'barcode']
       .map(key => [key, String(product?.[key as keyof Product] ?? '')])));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -26,6 +26,7 @@ export function ProductEdit({ actorId, productId, onSaved }: {
   if (!actor) return <Text style={ui.error}>Chỉ quản trị viên được sửa sản phẩm.</Text>;
   return <View style={{ gap: 12, minWidth: 0 }}>
     {field('sku', 'Mã sản phẩm')}{field('name', 'Tên kính')}
+    {field('barcode', 'Mã vạch')}
     <SearchPicker label="Phân loại" value={form.categoryId} onChange={value => set('categoryId', value)}
       options={db.categories.filter(c => !c.isDeleted).map(c => ({ label: c.name, value: c.id }))} />
     <Choice label="Loại sản phẩm" value={form.productType} onChange={value => set('productType', value)}
@@ -48,7 +49,7 @@ export function ProductEdit({ actorId, productId, onSaved }: {
         const result = productService.updateProduct(productId, { actorId, sku: form.sku, name: form.name, categoryId: form.categoryId,
           productType: form.productType as Product['productType'], brand: form.brand, color: form.color,
           material: form.material, shape: form.shape, price: Number(form.price), stock: Number(form.stock),
-          imageUrl: form.imageUrl, currentActorRole: 'admin' });
+          imageUrl: form.imageUrl, barcode: form.barcode, currentActorRole: 'admin' });
         if (!result.success) throw new Error(result.error);
         onSaved();
       } catch (e) { setError((e as Error).message); }

@@ -12,6 +12,8 @@ import { db } from './database';
 import { completeDraft, deleteUnpaidInvoice, invoiceDetail, validatePrescription } from './bao-service';
 import { voucherService } from './voucherService';
 import { revokeUserSessions } from './demoSession';
+import { itemQuantities } from './combo';
+import { saveDraftItems } from './bao-service';
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -245,6 +247,10 @@ export function removeInvoiceItem(userId: string, invoiceId: string, itemId: str
   if (!item) throw new Error('Dòng hóa đơn không tồn tại.');
   const items = invoice.items.filter(i => i.id !== itemId);
   if (!items.length) { deleteUnpaidInvoice(userId, invoiceId); return undefined; }
+  if (invoice.combos?.length) {
+    saveDraftItems(userId, invoiceId, itemQuantities(items), invoice.voucherCode);
+    return db.invoices.find(i => i.id === invoiceId);
+  }
   const next = totals(items, invoice.voucherCode);
   db.transaction(data => {
     const target = data.invoices.find(i => i.id === invoiceId)!;
@@ -302,7 +308,7 @@ export function payInvoice(
     const invoice = editableInvoice(userId, invoiceId);
     const discount = invoice.voucherCode ? voucherService.applyVoucher({voucherCode:invoice.voucherCode,subtotal:invoice.subtotal}) : undefined;
     if (discount && !discount.success) throw new Error(discount.error || 'Ưu đãi không hợp lệ.');
-    const payable = invoice.subtotal - (discount?.discountAmount || 0);
+    const payable = invoice.subtotal - (discount?.discountAmount || 0) + (invoice.assemblyFee || 0);
     if (input.method === 'cash') {
       if (!Number.isFinite(input.cashReceived) || (input.cashReceived || 0) < payable) {
         throw new Error('Số tiền mặt nhận chưa đủ để thanh toán.');

@@ -3,6 +3,7 @@
 
 import { Product, ProductType } from '../contracts/domain';
 import { db } from './database';
+import { validateBarcode } from './kien-service';
 
 export interface CreateProductInput {
   actorId?: string;
@@ -52,6 +53,7 @@ export class ProductService {
     if(!db.categories.some(c=>c.id===input.categoryId&&!c.isDeleted))return {success:false,error:'Phân loại không hợp lệ.'};
     if(!Number.isFinite(input.price)||input.price<0||!Number.isInteger(input.stock)||input.stock<0)return {success:false,error:'Giá và tồn kho phải hợp lệ, không âm; tồn kho là số nguyên.'};
     try {
+      if (input.barcode !== undefined) validateBarcode(input.barcode, productId);
       db.transaction(data => {
         const target = data.products.find(p => p.id === productId)!;
         const changedAt = new Date().toISOString();
@@ -61,7 +63,7 @@ export class ProductService {
         });
         Object.assign(target, { sku, name, categoryId: input.categoryId, productType: input.productType,
           price: input.price, stock: input.stock, updatedAt: changedAt });
-        for (const field of ['brand', 'color', 'material', 'shape'] as const) {
+        for (const field of ['brand', 'color', 'material', 'shape', 'barcode'] as const) {
           if (input[field] !== undefined) target[field] = input[field]?.trim();
         }
         if (input.imageUrl !== undefined) {
@@ -124,6 +126,7 @@ export class ProductService {
       return { success: false, error: 'Số lượng tồn kho không được âm.' };
     }
 
+    try { validateBarcode(input.barcode || ''); } catch(e) { return {success:false,error:(e as Error).message}; }
     const newProduct: Product = {
       id: 'PRD' + String(Date.now()).slice(-6),
       sku,

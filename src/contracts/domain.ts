@@ -126,6 +126,8 @@ export type InvoicePaymentStatus = 'draft' | 'pending' | 'paid' | 'cancelled';
 export type InvoiceProductionStatus = 'none' | 'cutting_lens' | 'completed' | 'delivered';
 
 export interface InvoiceItem {
+  productTypeSnapshot?: ProductType;
+  comboId?: string;
   id: string;
   productId: string;
   productName: string;
@@ -136,6 +138,8 @@ export interface InvoiceItem {
 }
 
 export interface Invoice {
+  combos?: InvoiceCombo[];
+  assemblyFee?: number;
   id: string;
   invoiceCode: string; // HD0001
   customerId?: string;
@@ -157,6 +161,17 @@ export interface Invoice {
   createdAt: string;
   paidAt?: string;
   updatedAt: string;
+}
+
+export interface InvoiceCombo {
+  id: string;
+  frameId: string;
+  lensId: string;
+  framePrice: number;
+  lensPrice: number;
+  quantity: number;
+  assemblyUnitFee: number;
+  prescription: EyePrescription;
 }
 
 export type InvoicePaymentMethod = 'cash' | 'transfer' | 'card' | 'qr';

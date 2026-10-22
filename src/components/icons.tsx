@@ -3,6 +3,7 @@ import { Image, Pressable, Text, View } from "react-native";
 import { palette, ui } from "./ui";
 
 const paths = {
+  barcode: '<path d="M3 4v16M6 4v16M10 4v16M13 4v16M17 4v16M21 4v16"/>',
   gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13M12 8S5 8 5 4s7 0 7 4Zm0 0s7 0 7-4-7 0-7 4Z"/>',
   copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V3H3v13h5"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',

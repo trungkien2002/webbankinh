@@ -1,4 +1,10 @@
 import { EmployeeManagement } from '../components/employee-management';
+import { CategoryList } from '../components/category-list';
+import { RevenueReport } from '../components/revenue-report';
+import { BarcodeLabel } from '../components/barcode-label';
+import { ComboForm } from '../components/combo-form';
+import { itemQuantities } from '../services/combo';
+import { removeDraftCombo } from '../services/bao-service';
 import { InvoiceList } from '../components/invoice-list';
 import { ProductEdit } from '../components/product-edit';
 import { deleteUnpaidInvoice } from '../services/bao-service';
@@ -66,6 +72,7 @@ const titles = [
   "Voucher",
   "Khách hàng",
   "Nhân viên",
+  "Báo cáo doanh thu",
 ];
 function shoppingCart(): Record<string, number> {
   try {
@@ -105,7 +112,7 @@ export function WebApp() {
   const [draftId, setDraftId] = useState(restoredDraft()?.id || '');
   useEffect(() => {
     if (page === 'store') { setCart(shoppingCart()); setVoucher(''); }
-    if (page === 'admin') { const draft = restoredDraft(); setCart(Object.fromEntries((draft?.items || []).map(i => [i.productId, i.quantity]))); setDraftId(draft?.id || ''); setVoucher(draft?.voucherCode || ''); }
+    if (page === 'admin') { const draft = restoredDraft(); setCart(itemQuantities(draft?.items || [])); setDraftId(draft?.id || ''); setVoucher(draft?.voucherCode || ''); }
   }, [page]);
   const newDraftLock = useRef(false);
   const [baoDialog, setBaoDialog] = useState<{ action: BaoAction; id?: string } | null>(null);
@@ -147,6 +154,7 @@ export function WebApp() {
     (currentPage - 1) * (section === "Bán hàng tại quầy" ? 6 : 12),
     currentPage * (section === "Bán hàng tại quầy" ? 6 : 12),
   );
+  const activeDraft = db.invoices.find(i => i.id === draftId && ['draft', 'pending'].includes(i.paymentStatus));
   const items: InvoiceItem[] = Object.entries(cart).flatMap(
     ([id, quantity]) => {
       const product = db.products.find((v) => v.id === id && !v.isDeleted);
@@ -159,24 +167,24 @@ export function WebApp() {
               sku: product.sku,
               unitPrice: product.price,
               quantity,
-              lineTotal: quantity * product.price,
+              lineTotal: page === 'admin' && activeDraft ? activeDraft.items.filter(i=>i.productId===id).reduce((s,i)=>s+i.lineTotal,0) : quantity * product.price,
             },
           ]
         : [];
     },
   );
-  const subtotal = items.reduce((s, v) => s + v.lineTotal, 0);
+  const subtotal = page === 'admin' && activeDraft ? activeDraft.subtotal : items.reduce((s, v) => s + v.lineTotal, 0);
   const discount = voucher.trim()
     ? voucherService.applyVoucher({ voucherCode: voucher, subtotal })
     : null;
   const discountAmount = discount?.success ? discount.discountAmount || 0 : 0;
-  const activeDraft = db.invoices.find(i => i.id === draftId && ['draft', 'pending'].includes(i.paymentStatus));
+
   const changeCart = (next: Record<string, number>) => {
     try {
       if (page === 'admin') {
         if (!activeDraft && !Object.keys(next).length) return;
         const draft = activeDraft || createDraft(user!.id);
-        saveDraftItems(user!.id, draft.id, next);
+        saveDraftItems(user!.id, draft.id, next, voucher);
         if (Object.keys(next).length) {
           if (!activeDraft && customer) setDraftCustomer(user!.id, draft.id, customer);
           setDraftId(draft.id);
@@ -304,6 +312,7 @@ export function WebApp() {
         stock: Number(form.stock),
         imageUrl: form.imageUrl,
         brand: form.brand,
+        barcode: form.barcode,
         currentActorRole: user!.role,
       });
     else
@@ -342,7 +351,7 @@ export function WebApp() {
           <Image source={{ uri: art(db.products.find(v => v.id === item.productId)!) }} resizeMode="contain" style={{width:64,height:52,borderRadius:7,backgroundColor:"#e9e9e9"}} />
           <View style={{ flex: 1, minWidth:100 }}>
             <Text style={ui.label}>{item.productName}</Text>
-            <Text style={ui.muted}>{money(item.unitPrice)}</Text>
+            <Text style={ui.muted}>{page === 'admin' ? `Thành tiền: ${money(item.lineTotal)}` : money(item.unitPrice)}</Text>
           </View>
           <Button
             onPress={() => {
@@ -379,7 +388,7 @@ export function WebApp() {
           </Text>
         )}
         <Text style={[ui.h2, { marginVertical: 18 }]}>
-          Tổng cộng: {money(subtotal - discountAmount)}
+          Tổng cộng: {money(subtotal - discountAmount + (page === 'admin' ? activeDraft?.assemblyFee || 0 : 0))}
         </Text>
       </View>
       {page === "store" ? (
@@ -412,6 +421,9 @@ export function WebApp() {
             ]}
           />
           <Button disabled={!activeDraft} onPress={() => setBaoDialog({ action: 'measurement', id: activeDraft?.id })}>Khách hàng / thông số đo mắt</Button>
+          <Button iconOnly={false} onPress={()=>{try{const draft=activeDraft||createDraft(user!.id);setDraftId(draft.id);setModal('Thêm combo kính');}catch(e){setNotice((e as Error).message);}}}>Chọn combo gọng + tròng</Button>
+          {!!activeDraft?.assemblyFee&&<Text style={ui.label}>Công mài: {money(activeDraft.assemblyFee)} (không áp voucher)</Text>}
+          {(activeDraft?.combos||[]).map(combo=><View key={combo.id} style={[ui.card,{padding:12,gap:6}]}><Text style={ui.label}>{combo.quantity} combo · {db.products.find(p=>p.id===combo.frameId)?.name} + {db.products.find(p=>p.id===combo.lensId)?.name}</Text><Text style={ui.muted}>Công mài {money(combo.quantity*combo.assemblyUnitFee)} · Số đo {combo.prescription.measuredAt}</Text><Button onPress={()=>{try{removeDraftCombo(user!.id,activeDraft!.id,combo.id);const updated=db.invoices.find(i=>i.id===draftId);setCart(itemQuantities(updated?.items||[]));if(!updated){setDraftId('');setCustomer('');setVoucher('');}refresh(v=>v+1);}catch(e){setNotice((e as Error).message);}}}>Xóa</Button></View>)}
           {activeDraft?.prescription && <Text style={ui.muted}>Đã lưu thông số đo mắt ngày {activeDraft.prescription.measuredAt}.</Text>}
           <Choice
             label="Thanh toán"
@@ -508,6 +520,8 @@ export function WebApp() {
   );
   return (
     <View style={{ flex: 1, backgroundColor: p.cream }}>
+      {modal==='Mã vạch và in tem'&&<Sheet title="Mã vạch và in tem" onClose={()=>setModal('')}><BarcodeLabel actorId={user!.id} productId={form.id} onSaved={()=>{refresh(v=>v+1);setNotice('Đã lưu mã vạch.');}}/></Sheet>}
+      {modal==='Thêm combo kính'&&<Sheet title="Combo gọng và tròng" onClose={()=>setModal('')}><ComboForm actorId={user!.id} invoiceId={draftId} onSaved={()=>{setCart(itemQuantities(db.invoices.find(i=>i.id===draftId)?.items||[]));refresh(v=>v+1);setModal('');setNotice('Đã thêm combo.');}}/></Sheet>}
       {page === "login" ? (
         <ScrollView
           contentContainerStyle={{
@@ -628,7 +642,7 @@ export function WebApp() {
                 .filter(
                   (t) =>
                     user?.role === "admin" ||
-                    !["Nhân viên", "Voucher"].includes(t),
+                    !["Nhân viên", "Voucher", "Báo cáo doanh thu"].includes(t),
                 )
                 .map((t, i) => (
                   <View key={t}>
@@ -774,6 +788,8 @@ export function WebApp() {
                     </View>
                   </View>
                 </>
+              ) : section === "Báo cáo doanh thu" ? (
+                <RevenueReport actorId={user!.id}/>
               ) : section === "Bán hàng tại quầy" ? (
                 <View style={{ flexDirection: width < 1000 ? "column" : "row", alignItems: "flex-start", gap: 24 }}>
                   <View onLayout={e => setCatalogWidth(e.nativeEvent.layout.width)} style={{ flex: width < 1000 ? undefined : 1, width: width < 1000 ? "100%" : undefined, minWidth: 0 }}>
@@ -859,38 +875,14 @@ export function WebApp() {
                         </Pressable>,
                         money(v.price),
                         `${v.stock} · ${v.stock > 0 ? 'Còn hàng' : 'Hết hàng'}`,
-                        db.categories.find(c => c.id === v.categoryId)?.name || v.productType,                        <View style={ui.row}><Button onPress={() => setDetail(v)}>Chi tiết</Button>{user?.role==='admin'&&<><Button onPress={()=>{setForm({id:v.id,sku:v.sku,name:v.name,categoryId:v.categoryId,productType:v.productType,price:String(v.price),stock:String(v.stock),brand:v.brand||'',imageUrl:v.imageUrl||''});setModal('Sửa sản phẩm');}}>Sửa</Button><Button onPress={()=>{setForm({id:v.id,name:v.name});setModal('Xóa sản phẩm');}}>Xóa</Button></>}</View>,
+                        db.categories.find(c => c.id === v.categoryId)?.name || v.productType,                        <View style={ui.row}><Button onPress={() => setDetail(v)}>Chi tiết</Button>{user?.role==='admin'&&<><Button onPress={()=>{setForm({id:v.id,sku:v.sku,name:v.name,categoryId:v.categoryId,productType:v.productType,price:String(v.price),stock:String(v.stock),brand:v.brand||'',imageUrl:v.imageUrl||''});setModal('Sửa sản phẩm');}}>Sửa</Button><Button onPress={()=>{setForm({id:v.id,name:v.name});setModal('Xóa sản phẩm');}}>Xóa</Button><IconButton name="barcode" label="Mã vạch và in tem" onPress={()=>{setForm({id:v.id});setModal('Mã vạch và in tem');}}/></>}</View>,
                       ])}
                     /></>
                   ) : section === "Phân loại kính" ? (
-                    <Table key={`customers-${query}`}
-                      headings={["Phân loại", "Mô tả", "Thao tác"]}
-                      rows={db.categories
-                        .filter(
-                          (c) =>
-                            !c.isDeleted &&
-                            c.name.toLowerCase().includes(query.toLowerCase()),
-                        )
-                        .map((c) => [
-                          c.name,
-                          c.description,
-                          <View style={ui.row}>
-                            <Button onPress={() => setBaoDialog({ action: 'category-detail', id: c.id })}>Chi tiết</Button>
-                            {user?.role === 'admin' && <Button onPress={() => setBaoDialog({ action: 'category-edit', id: c.id })}>Sửa</Button>}
-                          {user?.role === "admin" ? (
-                            <Button
-                              onPress={() => {
-                                setForm({ id: c.id, name: c.name });
-                                setModal("Xóa phân loại");
-                              }}
-                            >
-                              Xóa
-                            </Button>
-                          ) : (
-                            "—"
-                          )}</View>,
-                        ])}
-                    />
+                    <CategoryList actorId={user!.id} query={query} revision={revision} admin={user?.role==='admin'}
+                      onDetail={id=>setBaoDialog({action:'category-detail',id})}
+                      onEdit={id=>setBaoDialog({action:'category-edit',id})}
+                      onDelete={c=>{setForm({id:c.id,name:c.name});setModal('Xóa phân loại');}} />
                   ) : section === "Hóa đơn" ? (
                     <>
                       <View style={ui.row}>
@@ -922,7 +914,7 @@ export function WebApp() {
                         onDetail={id => setBaoDialog({ action: 'invoice-detail', id })}
                         onOpen={invoice => {
                           setDraftId(invoice.id);
-                          setCart(Object.fromEntries(invoice.items.map(item => [item.productId, item.quantity])));
+                          setCart(itemQuantities(invoice.items));
                           setCustomer(invoice.customerId || ''); setVoucher(invoice.voucherCode || ''); setSection('Bán hàng tại quầy');
                         }}
                         onDelete={id => { setForm({ id }); setModal('Xóa hóa đơn'); }}
@@ -1057,7 +1049,7 @@ export function WebApp() {
           </Button>
         </Sheet>
       )}
-      {!!modal && (
+      {!!modal && !['Mã vạch và in tem','Thêm combo kính'].includes(modal) && (
         <Sheet
           title={
             modal === "cart"
@@ -1100,6 +1092,7 @@ export function WebApp() {
           ) : ["Thêm sản phẩm", "Sửa sản phẩm"].includes(modal) ? (
             <>
               {field("sku", "Mã sản phẩm")}
+              {field("barcode", "Mã vạch (không bắt buộc)")}
               {field("name", "Tên kính")}
               <Choice
                 label="Phân loại"
