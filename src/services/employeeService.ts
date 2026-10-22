@@ -115,3 +115,34 @@ export class EmployeeService {
 }
 
 export const employeeService = new EmployeeService();
+
+export interface EmployeeQuery {
+  query?: string;
+  shift?: string;
+}
+
+function employeeText(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd')
+    .toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+/** NV004: query terms are ANDed; numeric terms only match the phone field. */
+export function queryEmployees(actorId: string, filter: EmployeeQuery = {}) {
+  if (!db.users.some(user => user.id === actorId && user.isActive && user.role === 'admin')) {
+    throw new Error('Chỉ quản trị viên được tra cứu nhân viên.');
+  }
+  const raw = (filter.query || '').trim();
+  const phoneOnly = /^[\d\s()+.\-]+$/.test(raw);
+  const terms = phoneOnly ? [raw.replace(/\D/g, '')].filter(Boolean) : employeeText(raw).split(' ').filter(Boolean);
+  if (raw && !terms.length) return [];
+  const shift = employeeText(filter.shift || '');
+  return db.employees.filter(employee => {
+    const phone = employee.phone.replace(/\D/g, '');
+    const text = employeeText(`${employee.fullName} ${employee.shift || ''}`);
+    if (shift && !employeeText(employee.shift || '').includes(shift)) return false;
+    return terms.every(term => /^\d+$/.test(term) ? phone.includes(term) : text.includes(term));
+  }).map(employee => {
+    const user = db.users.find(user => user.id === employee.userId);
+    return { ...employee, accountRole: user?.role, accountActive: user?.isActive };
+  }).sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi') || a.id.localeCompare(b.id));
+}
