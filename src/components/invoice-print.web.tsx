@@ -1,0 +1,15 @@
+import { Invoice } from '../contracts/domain';
+const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+const money = (amount: number) => `${amount.toLocaleString('vi-VN')} đ`;
+export async function printInvoice(invoice: Invoice, format: "a4" | "80mm" = "a4"): Promise<void> {
+  const popup = window.open('', '_blank', 'width=900,height=700');
+  if (!popup) throw new Error('Trình duyệt chặn cửa sổ in. Hãy cho phép popup rồi thử lại.');
+  const p = invoice.prescription;
+  const measured = p ? `<h2>Thông số đo mắt</h2><table><tr><th>Mắt</th><th>SPH</th><th>CYL</th><th>AXIS</th></tr><tr><td>Phải</td><td>${p.sphereRight}</td><td>${p.cylinderRight}</td><td>${p.axisRight}</td></tr><tr><td>Trái</td><td>${p.sphereLeft}</td><td>${p.cylinderLeft}</td><td>${p.axisLeft}</td></tr></table><p>PD: ${p.pupillaryDistance} mm · Ngày đo: ${escape(p.measuredAt)}</p>` : '<p>Không có thông số đo mắt.</p>';
+  const thermal = format === '80mm';
+  const css = thermal ? '@page{size:80mm auto;margin:3mm}html,body{width:74mm;max-width:74mm;margin:0;padding:0;font:11px Arial;overflow-wrap:anywhere}h1{font-size:16px}h2{font-size:13px}table{table-layout:fixed;width:100%}td,th{padding:3px 1px;font-size:10px;overflow-wrap:anywhere}td:first-child,th:first-child{width:42%}@media print{body{margin:0}}' : 'body{font:16px Arial;max-width:800px;margin:32px auto}td,th{padding:12px}@media print{body{margin:0}}';
+  popup.document.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${escape(invoice.invoiceCode)}</title><style>body{color:#202922}table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #ddd;text-align:left}h1{color:#284e43}${css}</style></head><body><h1>ÉLAN / STUDIO</h1><h2>Hóa đơn ${escape(invoice.invoiceCode)}</h2><p>Ngày: ${escape(invoice.createdAt)} · Trạng thái: ${escape(invoice.paymentStatus)}</p><p>Khách: ${escape(invoice.customerName || 'Khách vãng lai')} · ${escape(invoice.customerPhone)}</p><p>Nhân viên: ${escape(invoice.employeeName)}</p><table><tr><th>Sản phẩm</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr>${invoice.items.map(i => `<tr><td>${escape(i.productName)} (${escape(i.sku)})</td><td>${i.quantity}</td><td>${money(i.unitPrice)}</td><td>${money(i.lineTotal)}</td></tr>`).join('')}</table><p>Tạm tính: ${money(invoice.subtotal)}</p><p>Giảm giá: ${money(invoice.discountAmount)} · ${escape(invoice.voucherCode)}</p><h2>Tổng: ${money(invoice.totalAmount)}</h2><p>Phương thức: ${invoice.paymentMethod === 'cash' ? 'Tiền mặt' : invoice.paymentMethod === 'card' ? 'Thẻ (mô phỏng)' : invoice.paymentMethod === 'qr' ? 'QR (mô phỏng)' : 'Chuyển khoản'} · Ngày thanh toán: ${escape(invoice.paidAt || 'Chưa thanh toán')}</p><p>Trạng thái gia công: ${escape(invoice.productionStatus)}</p>${measured}<p>${escape(p?.notes || invoice.notes)}</p><p>Bản demo cục bộ.</p></body></html>`);
+  popup.document.close();
+  popup.focus();
+  popup.print();
+}

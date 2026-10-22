@@ -9,7 +9,7 @@ import {
   User,
 } from '../contracts/domain';
 import { db } from './database';
-import { completeDraft, invoiceDetail, validatePrescription } from './bao-service';
+import { completeDraft, deleteUnpaidInvoice, invoiceDetail, validatePrescription } from './bao-service';
 import { voucherService } from './voucherService';
 import { revokeUserSessions } from './demoSession';
 
@@ -18,7 +18,7 @@ const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const paying = new Set<string>();
 
 export function foldText(value: string) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/đ/g, 'd').trim();
 }
 
 function actor(userId: string, admin = false): User {
@@ -155,7 +155,7 @@ export function previewProductImport(userId: string, sheet: unknown[][]) {
   const lotIdx = cols['lo'] ?? cols['lot'] ?? cols['solo'];
   const errors: ImportRowError[] = [];
   const valid: ProductImportRow[] = [];
-  const barcodes = new Set<string>();
+  const barcodes = new Map<string, string>();
   parsed.rows.forEach((row, index) => {
     const line = index + 2;
     if (row.every(cell => !cell)) return;
@@ -177,11 +177,11 @@ export function previewProductImport(userId: string, sheet: unknown[][]) {
       return;
     }
     if (barcode) {
-      if (barcodes.has(barcode) || db.products.some(p => p.barcode === barcode && p.id !== product.id && !p.isDeleted)) {
+      if ((barcodes.has(barcode) && barcodes.get(barcode) !== sku) || db.products.some(p => p.barcode === barcode && p.id !== product.id && !p.isDeleted)) {
         errors.push({ line, message: `Mã vạch trùng: ${barcode}` });
         return;
       }
-      barcodes.add(barcode);
+      barcodes.set(barcode, sku);
     }
     valid.push({ sku, barcode, quantity, lot: lot || undefined });
   });
@@ -238,6 +238,7 @@ export function removeInvoiceItem(userId: string, invoiceId: string, itemId: str
   const item = invoice.items.find(i => i.id === itemId);
   if (!item) throw new Error('Dòng hóa đơn không tồn tại.');
   const items = invoice.items.filter(i => i.id !== itemId);
+  if (!items.length) { deleteUnpaidInvoice(userId, invoiceId); return undefined; }
   const next = totals(items, invoice.voucherCode);
   db.transaction(data => {
     const target = data.invoices.find(i => i.id === invoiceId)!;
@@ -281,8 +282,10 @@ export function payInvoice(
   actor(userId);
   const key = input.idempotencyKey.trim();
   if (!key) throw new Error('Thiếu khóa chống gửi lại.');
+  if (!['cash', 'transfer', 'card', 'qr'].includes(input.method)) throw new Error('Phương thức thanh toán không hợp lệ.');
   const existing = db.payments.find(p => p.idempotencyKey === key);
   if (existing) {
+    if (existing.invoiceId !== invoiceId || existing.method !== input.method) throw new Error('Khóa thanh toán đã gắn với giao dịch khác.');
     const invoice = db.invoices.find(i => i.id === existing.invoiceId);
     if (!invoice) throw new Error('Hóa đơn không tồn tại.');
     return invoice;
@@ -291,8 +294,11 @@ export function payInvoice(
   paying.add(invoiceId);
   try {
     const invoice = editableInvoice(userId, invoiceId);
+    const discount = invoice.voucherCode ? voucherService.applyVoucher({voucherCode:invoice.voucherCode,subtotal:invoice.subtotal}) : undefined;
+    if (discount && !discount.success) throw new Error(discount.error || 'Ưu đãi không hợp lệ.');
+    const payable = invoice.subtotal - (discount?.discountAmount || 0);
     if (input.method === 'cash') {
-      if (!Number.isFinite(input.cashReceived) || (input.cashReceived || 0) < invoice.totalAmount) {
+      if (!Number.isFinite(input.cashReceived) || (input.cashReceived || 0) < payable) {
         throw new Error('Số tiền mặt nhận chưa đủ để thanh toán.');
       }
     }
@@ -333,6 +339,9 @@ export function updateCustomer(
   if (!customer) throw new Error('Khách hàng không tồn tại.');
   const fullName = input.fullName.trim();
   const phone = input.phone.replace(/[\s.\-()]/g, '');
+  const email = input.email?.trim().toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Email không hợp lệ.');
+  if (email && db.customers.some(c=>c.id!==customerId&&c.email?.toLowerCase()===email)) throw new Error('Email đã được sử dụng.');
   if (!fullName) throw new Error('Họ tên không được để trống.');
   if (!/^\d{9,11}$/.test(phone)) throw new Error('Số điện thoại phải gồm 9–11 chữ số.');
   if (db.customers.some(c => c.id !== customerId && c.phone.replace(/[\s.\-()]/g, '') === phone)) {
@@ -346,7 +355,7 @@ export function updateCustomer(
     Object.assign(target, {
       fullName,
       phone,
-      email: input.email?.trim() || undefined,
+      email: email || undefined,
       address: input.address?.trim() || undefined,
       updatedAt: now(),
     });
