@@ -3,6 +3,7 @@
 
 import { Customer, EyePrescription } from '../contracts/domain';
 import { db } from './database';
+import { validatePrescription } from './bao-service';
 
 export interface SearchCustomerFilter {
   query?: string; // SĐT, tên hoặc mã hồ sơ khách (KHxxxx)
@@ -65,26 +66,35 @@ export class CustomerService {
     if (!fullName) {
       return { success: false, error: 'Họ tên khách hàng không được để trống.' };
     }
-    if (!phone || phone.length < 9) {
+    if (!/^\d{9,11}$/.test(phone)) {
       return { success: false, error: 'Số điện thoại không hợp lệ.' };
     }
 
-    const count = db.customers.length + 1;
+    const email = input.email?.trim().toLowerCase();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return {success:false,error:'Email không hợp lệ.'};
+    if (db.customers.some(c=>this.normalizePhone(c.phone)===phone)) return {success:false,error:'Số điện thoại đã được dùng bởi khách khác.'};
+    if (email && db.customers.some(c=>c.email?.toLowerCase()===email)) return {success:false,error:'Email đã được sử dụng.'};
+    if (input.prescription) {
+      try {validatePrescription(input.prescription);} catch(e) {return {success:false,error:(e as Error).message};}
+    }
+    let count = db.customers.length + 1;
+    while (db.customers.some(c=>c.customerCode==='KH'+String(count).padStart(4,'0'))) count++;
     const customerCode = 'KH' + String(count).padStart(4, '0');
 
     const newCust: Customer = {
-      id: 'CUS' + String(Date.now()).slice(-6),
+      id: `CUS-${crypto.randomUUID()}`,
       customerCode,
       fullName,
       phone,
-      email: input.email?.trim(),
+      email,
       address: input.address?.trim(),
-      prescriptions: input.prescription ? [input.prescription] : [],
+      prescriptions: input.prescription ? [JSON.parse(JSON.stringify(input.prescription))] : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    db.setCustomers([...db.customers, newCust]);
+    try {db.transaction(data=>{data.customers.push(newCust);});}
+    catch {return {success:false,error:'Không thể lưu hồ sơ khách hàng. Vui lòng thử lại.'};}
     return { success: true, data: newCust };
   }
 
