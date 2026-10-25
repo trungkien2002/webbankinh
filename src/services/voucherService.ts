@@ -3,6 +3,7 @@
 
 import { Voucher } from '../contracts/domain';
 import { db } from './database';
+import { isCalendarDay, vietnamDay } from './vietnam-date';
 
 export interface UpdateVoucherInput {
   voucherId: string;
@@ -60,9 +61,35 @@ export class VoucherService {
 
     const currentVoucher = vouchers[index];
 
+    // VC002 Checklist: Chặn sửa voucher đã hết hạn (chỉ cho phép toggle isActive nếu cần)
+    const isExpired = !isCalendarDay(currentVoucher.endDate) || vietnamDay() > currentVoucher.endDate;
+
+    // Nếu sửa các thông số nội dung (tên, mức giảm, hạn sử dụng, điều kiện) mà voucher đã hết hạn -> Báo lỗi
+    const isEditingContent =
+      (input.name !== undefined && input.name !== currentVoucher.name) ||
+      (input.discountType !== undefined && input.discountType !== currentVoucher.discountType) ||
+      (input.discountValue !== undefined && input.discountValue !== currentVoucher.discountValue) ||
+      (input.minOrderValue !== undefined && input.minOrderValue !== currentVoucher.minOrderValue) ||
+      (input.maxDiscountAmount !== undefined && input.maxDiscountAmount !== currentVoucher.maxDiscountAmount) ||
+      (input.startDate !== undefined && input.startDate !== currentVoucher.startDate) ||
+      (input.endDate !== undefined && input.endDate !== currentVoucher.endDate);
+
+    if (isExpired && isEditingContent) {
+      return {
+        success: false,
+        error: `Không thể sửa nội dung voucher đã hết hạn sử dụng (hết hạn ngày ${currentVoucher.endDate}).`,
+      };
+    }
+
     // Validate Discount value
     const discountType = input.discountType || currentVoucher.discountType;
     const discountValue = input.discountValue !== undefined ? input.discountValue : currentVoucher.discountValue;
+    const minOrderValue = input.minOrderValue ?? currentVoucher.minOrderValue;
+    const maxDiscountAmount = input.maxDiscountAmount ?? currentVoucher.maxDiscountAmount;
+    if (!['percentage','fixed'].includes(discountType) || !Number.isFinite(discountValue) || !Number.isFinite(minOrderValue) || minOrderValue < 0 ||
+      (maxDiscountAmount !== undefined && (!Number.isFinite(maxDiscountAmount) || maxDiscountAmount <= 0)))
+      return {success:false,error:'Mức giảm, đơn tối thiểu và trần giảm phải là số hợp lệ, không âm.'};
+    if (input.name !== undefined && !input.name.trim()) return {success:false,error:'Tên voucher không được trống.'};
 
     if (discountType === 'percentage') {
       if (discountValue <= 0 || discountValue > 100) {
@@ -75,8 +102,9 @@ export class VoucherService {
     }
 
     // Validate dates
-    const startDate = input.startDate || currentVoucher.startDate;
-    const endDate = input.endDate || currentVoucher.endDate;
+    const startDate = input.startDate ?? currentVoucher.startDate;
+    const endDate = input.endDate ?? currentVoucher.endDate;
+    if (!isCalendarDay(startDate) || !isCalendarDay(endDate)) return {success:false,error:'Ngày hiệu lực không hợp lệ (YYYY-MM-DD).'};
 
     if (new Date(startDate) > new Date(endDate)) {
       return { success: false, error: 'Ngày bắt đầu không được lớn hơn ngày kết thúc.' };
@@ -95,9 +123,8 @@ export class VoucherService {
       updatedAt: new Date().toISOString(),
     };
 
-    const newVouchers = [...vouchers];
-    newVouchers[index] = updatedVoucher;
-    db.setVouchers(newVouchers);
+    try { db.transaction(data => {data.vouchers[index] = updatedVoucher;}); }
+    catch {return {success:false,error:'Không thể lưu voucher. Vui lòng thử lại.'};}
 
     return {
       success: true,
@@ -129,9 +156,11 @@ export class VoucherService {
       return { success: false, error: 'Voucher này hiện đang tạm ngưng sử dụng.' };
     }
 
-    const now = currentDateStr ? new Date(currentDateStr) : new Date();
-    const start = new Date(voucher.startDate);
-    const end = new Date(voucher.endDate + 'T23:59:59');
+    if (!isCalendarDay(voucher.startDate) || !isCalendarDay(voucher.endDate) || voucher.startDate > voucher.endDate || !Number.isFinite(input.subtotal) || input.subtotal < 0)
+      return {success:false,error:'Dữ liệu voucher hoặc tiền hàng không hợp lệ.'};
+    const now = vietnamDay(currentDateStr);
+    const start = voucher.startDate;
+    const end = voucher.endDate;
 
     if (now < start) {
       return { success: false, error: `Voucher chưa bắt đầu áp dụng (bắt đầu từ ${voucher.startDate}).` };
@@ -176,6 +205,40 @@ export class VoucherService {
 
   public getAllVouchers(): Voucher[] {
     return db.vouchers;
+  }
+
+  /**
+   * VC003: Lấy trạng thái suy diễn của voucher
+   * - 'disabled': Vô hiệu hóa (isActive === false)
+   * - 'expired': Hết hạn (now > endDate)
+   * - 'upcoming': Sắp áp dụng (now < startDate)
+   * - 'active': Đang áp dụng (startDate <= now <= endDate && isActive)
+   * Thống nhất ưu tiên: Nếu vừa vô hiệu vừa hết hạn -> ưu tiên 'disabled' (Vô hiệu hóa) hoặc có thể lọc chính xác
+   */
+  public getVoucherStatus(voucher: Voucher, currentDateStr?: string): 'active' | 'upcoming' | 'expired' | 'disabled' {
+    if (!voucher.isActive) return 'disabled';
+    if (!isCalendarDay(voucher.startDate) || !isCalendarDay(voucher.endDate) || voucher.startDate > voucher.endDate) return 'disabled';
+    const now = vietnamDay(currentDateStr);
+    const start = voucher.startDate;
+    const end = voucher.endDate;
+    if (now < start) return 'upcoming';
+    if (now > end) return 'expired';
+    return 'active';
+  }
+
+  /**
+   * VC003: Lọc voucher theo từ khóa và trạng thái
+   */
+  public filterVouchers(filter: { query?: string; status?: 'all' | 'active' | 'upcoming' | 'expired' | 'disabled' }, currentDateStr?: string): Voucher[] {
+    let list = db.vouchers;
+    if (filter.query) {
+      const q = filter.query.trim().toLowerCase();
+      list = list.filter(v => (v.code + ' ' + v.name).toLowerCase().includes(q));
+    }
+    if (filter.status && filter.status !== 'all') {
+      list = list.filter(v => this.getVoucherStatus(v, currentDateStr) === filter.status);
+    }
+    return list;
   }
 }
 

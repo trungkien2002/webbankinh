@@ -168,7 +168,8 @@ export class ProductService {
         p =>
           p.name.toLowerCase().includes(q) ||
           p.sku.toLowerCase().includes(q) ||
-          (p.barcode && p.barcode.toLowerCase().includes(q))
+          (p.barcode && p.barcode.toLowerCase().includes(q)) ||
+          (p.brand && p.brand.toLowerCase().includes(q))
       );
     }
 

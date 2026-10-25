@@ -3,6 +3,7 @@
 
 import { Invoice, InvoiceItem, InvoicePaymentStatus, InvoiceProductionStatus } from '../contracts/domain';
 import { db } from './database';
+import { isCalendarDay, vietnamDayStart } from './vietnam-date';
 
 export interface CreatePendingInvoiceInput {
   items: InvoiceItem[];
@@ -128,9 +129,26 @@ export class InvoiceService {
   }
 
   /**
+   * Kiểm tra khoảng ngày hợp lệ
+   */
+  public validateDateRange(fromDate?: string, toDate?: string): { valid: boolean; error?: string } {
+    if ((fromDate && !isCalendarDay(fromDate)) || (toDate && !isCalendarDay(toDate)))
+      return {valid:false,error:'Ngày không hợp lệ (YYYY-MM-DD).'};
+    if (fromDate && toDate && fromDate > toDate) {
+      return { valid: false, error: 'Từ ngày không được lớn hơn đến ngày.' };
+    }
+    return { valid: true };
+  }
+
+  /**
    * HD004: Lọc hóa đơn theo thời gian, trạng thái thanh toán và trạng thái mài lắp
    */
   public filterInvoices(filter: FilterInvoiceInput): Invoice[] {
+    const dateCheck = this.validateDateRange(filter.fromDate, filter.toDate);
+    if (!dateCheck.valid) {
+      throw new Error(dateCheck.error);
+    }
+
     let result = db.invoices;
 
     // 1. Lọc theo trạng thái thanh toán
@@ -145,12 +163,12 @@ export class InvoiceService {
 
     // 3. Lọc theo khoảng ngày (tính theo múi giờ địa phương)
     if (filter.fromDate) {
-      const from = new Date(filter.fromDate + 'T00:00:00');
-      result = result.filter(inv => new Date(inv.createdAt) >= from);
+      const from = vietnamDayStart(filter.fromDate);
+      result = result.filter(inv => Date.parse(inv.createdAt) >= from);
     }
     if (filter.toDate) {
-      const to = new Date(filter.toDate + 'T23:59:59');
-      result = result.filter(inv => new Date(inv.createdAt) <= to);
+      const endExclusive = vietnamDayStart(filter.toDate) + 86_400_000;
+      result = result.filter(inv => Date.parse(inv.createdAt) < endExclusive);
     }
 
     // 4. Tìm kiếm từ khóa mã HD hoặc Tên/SĐT

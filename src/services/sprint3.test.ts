@@ -1,15 +1,17 @@
 // src/services/sprint3.test.ts
 // Test suites cho Sprint 3: BH002, BH006, VC002
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { db } from './database';
 import { voucherService } from './voucherService';
 import { invoiceService } from './invoiceService';
 
 describe('Sprint 3 - VC002: Sửa thông tin voucher', () => {
   beforeEach(() => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-15T05:00:00Z'));
     db.reset();
   });
+  afterEach(() => vi.useRealTimers());
 
   it('Thành công: Admin sửa thời hạn và giá trị giảm của voucher', () => {
     const result = voucherService.updateVoucher({
