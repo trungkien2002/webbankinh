@@ -1,3 +1,4 @@
+import {saleTrace,saleTime,paymentNames} from './sale-trace';
 import {validateBarcode} from './barcode-validation';
 export {validateBarcode} from './barcode-validation';
 import { Invoice, ProductType } from '../contracts/domain';
@@ -35,11 +36,12 @@ export function validDay(value: string) {
   return value;
 }
 export type RevenueGroup = ProductType | 'Combo' | 'Khác' | 'Thuế';
-export function revenueReport(actorId: string, from: string, to: string, period: 'day' | 'month' | 'year' = 'day') {
+export function revenueReport(actorId: string, from: string, to: string, period: 'day' | 'month' | 'year' = 'day', query = '') {
   staff(actorId, true);
   if (validDay(from) > validDay(to)) throw new Error('Từ ngày phải trước hoặc bằng đến ngày.');
   if (!['day','month','year'].includes(period)) throw new Error('Kỳ báo cáo không hợp lệ.');
-  const invoices = db.invoices.filter(i => i.paymentStatus === 'paid' && vnDay(i.createdAt) >= from && vnDay(i.createdAt) <= to);
+  const q=foldText(query);
+  const invoices = db.invoices.filter(i => {const t=saleTrace(i);return i.paymentStatus==='paid'&&vnDay(i.createdAt)>=from&&vnDay(i.createdAt)<=to&&(!q||foldText([i.invoiceCode,t.customer,t.phone,t.seller,t.account,t.collector,t.collectorAccount].join(' ')).includes(q));}).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id));
   const groups: Record<RevenueGroup, number> = { 'Gọng kính':0, 'Tròng kính':0, 'Kính râm':0, 'Phụ kiện':0, Combo:0, 'Khác':0, 'Thuế':0 };
   const timeline = new Map<string, number>();
   for (const inv of invoices) {
@@ -60,12 +62,13 @@ export function revenueReport(actorId: string, from: string, to: string, period:
     if (!entries.length) groups['Khác'] += inv.totalAmount;
     else {groups.Combo += inv.assemblyFee || 0;groups['Thuế'] += inv.taxAmount || 0;}
   }
-  return { from, to, period, invoices, groups, total: invoices.reduce((s,i) => s+i.totalAmount,0),
+  return { from, to, period, query, invoices, groups, total: invoices.reduce((s,i) => s+i.totalAmount,0),
     timeline: [...timeline].sort(([a],[b]) => a.localeCompare(b)).map(([label,value]) => ({label,value})) };
 }
 export function revenueRows(report: ReturnType<typeof revenueReport>): (string | number)[][] {
   return [['Báo cáo doanh thu Élan', report.from, report.to], ['Cơ sở', 'Ngày tạo hóa đơn (giờ Việt Nam); chỉ đơn đã thanh toán'],
-    ['Tổng thu', report.total], [], ['Kỳ','Doanh thu'], ...report.timeline.map(r => [r.label,r.value]), [],
+    ['Từ khóa',report.query], ['Tổng thu', report.total], [], ['Kỳ','Doanh thu'], ...report.timeline.map(r => [r.label,r.value]), [],
     ['Nhóm sản phẩm','Doanh thu sau phân bổ giảm giá'], ...Object.entries(report.groups), [],
-    ['Hóa đơn','Ngày tạo (VN)','Thành tiền'], ...report.invoices.map((i: Invoice) => [i.invoiceCode,vnDay(i.createdAt),i.totalAmount])];
+    ['Hóa đơn','Tạo lúc (VN)','Thanh toán lúc (VN)','Kênh bán','Nhân viên lập','Tài khoản lập','Nhân viên thu','Tài khoản thu','Khách hàng','Điện thoại','Phương thức','Tiền hàng','Giảm giá','Công mài','Thuế','Tổng thu'],
+    ...report.invoices.map((i:Invoice)=>{const t=saleTrace(i);return [i.invoiceCode,saleTime(i.createdAt),saleTime(i.paidAt),t.channel,t.seller,t.account,t.collector,t.collectorAccount,t.customer,t.phone,paymentNames[i.paymentMethod],i.subtotal,i.discountAmount,i.assemblyFee||0,i.taxAmount||0,i.totalAmount];})];
 }

@@ -137,7 +137,11 @@ export interface InvoiceItem {
   lineTotal: number;
 }
 
+export interface SaleActorSnapshot { userId: string; account: string; employeeName: string; }
+
 export interface Invoice {
+  createdBy?: SaleActorSnapshot;
+  paidBy?: SaleActorSnapshot;
   taxRate?: number;
   taxAmount?: number;
   combos?: InvoiceCombo[];

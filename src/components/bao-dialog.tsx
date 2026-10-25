@@ -1,3 +1,4 @@
+import {SaleDetails} from './sale-details';
 import {ThermalReceipt} from './thermal-receipt';
 import {DateField} from './filter-controls';
 import { MeasurementForm } from './measurementForm';
@@ -20,14 +21,15 @@ const titles: Record<BaoAction, string> = {
 const today = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
 const displayDate = (value?: string) => value ? new Date(value).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'Chưa thanh toán';
 const paymentLabels: Record<string,string> = { draft: 'Đơn nháp', pending: 'Chờ thanh toán', paid: 'Đã thanh toán', cancelled: 'Đã hủy' };
-const productionLabels: Record<string,string> = { none: 'Không gia công', cutting_lens: 'Đang cắt tròng', ready: 'Sẵn sàng', delivered: 'Đã giao' };
+const productionLabels: Record<string,string> = { none: 'Không gia công', cutting_lens: 'Đang cắt tròng', completed: 'Hoàn tất', delivered: 'Đã giao' };
 export function InvoiceContent({ invoice }: { invoice: Invoice }) {
   const [error, setError] = useState('');
   const prescription = invoice.prescription;
   const [thermal,setThermal]=useState(false);
   return <View style={{ gap: 20 }}>{thermal&&<ThermalReceipt invoice={invoice} onClose={()=>setThermal(false)}/>}<Button onPress={()=>setThermal(true)}>In hóa đơn 80mm</Button>
     <Text selectable style={ui.h2}>{invoice.invoiceCode}</Text>
-    <Text selectable style={[ui.text, { lineHeight: 28, padding: 18, backgroundColor: "#f0f4ee", borderRadius: 10 }]}>Ngày tạo: {displayDate(invoice.createdAt)}{'\n'}Khách: {invoice.customerName || 'Khách vãng lai'} · {invoice.customerPhone || '—'}{'\n'}Nhân viên: {invoice.employeeName}{'\n'}Trạng thái: {paymentLabels[invoice.paymentStatus] || invoice.paymentStatus} · Gia công: {productionLabels[invoice.productionStatus] || invoice.productionStatus}</Text>
+    <Text style={ui.label}>{paymentLabels[invoice.paymentStatus]} · {productionLabels[invoice.productionStatus]||invoice.productionStatus}</Text>
+    <SaleDetails invoice={invoice} internal/>
     <Table headings={['Sản phẩm', 'SL', 'Đơn giá', 'Thành tiền']} rows={invoice.items.map(item => [item.productName + ' / ' + item.sku + (item.comboId ? ' · Combo' : ''), String(item.quantity), money(item.unitPrice), money(item.lineTotal)])} />
     <Text selectable style={[ui.text, { lineHeight: 30, padding: 18, backgroundColor: "#f0f4ee", borderRadius: 10 }]}>Tiền hàng: {money(invoice.subtotal)}{'\n'}Công mài: {money(invoice.assemblyFee || 0)}{'\n'}Giảm giá: {money(invoice.discountAmount)} · {invoice.voucherCode || '—'}{'\n'}Thuế {invoice.taxRate||0}%: {money(invoice.taxAmount||0)}{'\n'}Tổng: {money(invoice.totalAmount)}{'\n'}Thanh toán: {({cash:'Tiền mặt',transfer:'Chuyển khoản',qr:'QR mô phỏng',card:'Thẻ mô phỏng'})[invoice.paymentMethod]} · {displayDate(invoice.paidAt)}</Text>
     {prescription ? <><Text style={ui.h2}>Thông số đo mắt</Text><Table headings={['Mắt', 'SPH', 'CYL', 'AXIS']} rows={[

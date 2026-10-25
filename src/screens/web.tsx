@@ -800,7 +800,7 @@ export function WebApp() {
                   </View>
                 </>
               ) : section === "Báo cáo doanh thu" ? (
-                <RevenueReport actorId={user!.id}/>
+                <RevenueReport actorId={user!.id} onDetail={id=>setBaoDialog({action:'invoice-detail',id})}/>
               ) : section === "Bán hàng tại quầy" ? (
                 <View style={{ flexDirection: width < 1000 ? "column" : "row", alignItems: "flex-start", gap: 24 }}>
                   <View onLayout={e => setCatalogWidth(e.nativeEvent.layout.width)} style={{ flex: width < 1000 ? undefined : 1, width: width < 1000 ? "100%" : undefined, minWidth: 0 }}>

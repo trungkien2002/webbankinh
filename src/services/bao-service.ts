@@ -1,3 +1,4 @@
+import {saleActor} from './sale-trace';
 // Local demo operations for Bao. This module does not provide server authorization.
 import { Category, Employee, EyePrescription, Invoice, InvoiceItem, User, Voucher } from '../contracts/domain';
 import { db } from './database';
@@ -43,7 +44,7 @@ export function createDraft(userId: string): Invoice {
   let number = db.invoices.length + 1;
   while (codes.has(`HD${String(number).padStart(4, '0')}`)) number++;
   const invoice: Invoice = {
-    id: id('INV'), invoiceCode: `HD${String(number).padStart(4, '0')}`,
+    createdBy:saleActor(userId), id: id('INV'), invoiceCode: `HD${String(number).padStart(4, '0')}`,
     employeeId: employee.id, employeeName: employee.fullName, items: [],
     subtotal: 0, discountAmount: 0, totalAmount: 0, taxRate:DEMO_TAX_RATE,taxAmount:0,
     paymentMethod: 'cash', paymentStatus: 'draft', productionStatus: 'none',
@@ -176,7 +177,7 @@ export function completeDraft(userId: string, invoiceId: string, paid: boolean, 
   if (discount && !discount.success) throw new Error(discount.error);
   db.transaction(data => {
     const target = data.invoices.find(i => i.id === invoiceId)!;
-    Object.assign(target, { paymentStatus: paid ? 'paid' : 'pending', paymentMethod,
+    Object.assign(target, { paymentStatus: paid ? 'paid' : 'pending', paymentMethod, ...(paid?{paidBy:saleActor(userId)}:{}),
       productionStatus: target.prescription ? 'cutting_lens' : 'none', paidAt: paid ? now() : undefined, updatedAt: now(),
       discountAmount: discount?.discountAmount || 0, voucherDiscountSnapshot: discount?.discountAmount || 0,
       ...invoiceTotals(target.subtotal,discount?.discountAmount||0,target.assemblyFee||0,target.taxRate||0) });
