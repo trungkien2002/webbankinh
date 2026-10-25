@@ -1,3 +1,10 @@
+import {ExcelImport} from '../components/excel-import';
+import {ProductFilters,emptyProductFilters,useDebounced,DateField,SelectField} from '../components/filter-controls';
+import {MeasurementForm} from '../components/measurementForm';
+import {PaymentForm} from '../components/payment-form';
+import {prescriptionFromForm} from '../services/prescription-form';
+import {vietnamDay} from '../services/vietnam-date';
+import {invoiceTotals,DEMO_TAX_RATE} from '../services/invoice-totals';
 import { EmployeeManagement } from '../components/employee-management';
 import { CategoryList } from '../components/category-list';
 import { RevenueReport } from '../components/revenue-report';
@@ -132,22 +139,27 @@ export function WebApp() {
   const [sort, setSort] = useState('name');
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [advanced,setAdvanced]=useState({...emptyProductFilters});
+  const [production,setProduction]=useState('all');
+  const [voucherStatus,setVoucherStatus]=useState<'all'|'active'|'upcoming'|'expired'|'disabled'>('all');
+  const productQuery=useDebounced(query);
   const products = productService.searchProducts({
-    query,
+    ...advanced,
+    query:productQuery,
     categoryId: category || undefined,
   }).filter(p => stockFilter === 'all' || (stockFilter === 'available' ? p.stock > 0 : p.stock === 0))
     .sort((a, b) => sort === 'price-asc' ? a.price - b.price || a.id.localeCompare(b.id) : sort === 'price-desc' ? b.price - a.price || a.id.localeCompare(b.id) : a.name.localeCompare(b.name, 'vi') || a.id.localeCompare(b.id));
-  useEffect(() => setProductPage(1), [query, category, section]);
+  useEffect(() => setProductPage(1), [query, category, section,advanced]);
   useEffect(() => setProductPage(1), [stockFilter, sort]);
   useEffect(() => {
     if (!user) return;
-    const timer = setInterval(() => {
-      const session = getDemoSession();
-      if (!session || session.id !== user.id) { setUser(null); setPage('login'); setCart({}); setDraftId(''); setModal(''); setBaoDialog(null); setCustomerEditId(''); }
-      else if (session.role !== user.role || session.email !== user.email) setUser(session);
-    }, 1500);
-    return () => clearInterval(timer);
-  }, [user]);
+    const expire = () => { setUser(null); setPage('login'); setCart({}); setDraftId(''); setModal(''); setBaoDialog(null); setCustomerEditId(''); };
+    const check = () => { const session=getDemoSession(); if(!session||session.id!==user.id){expire();return false;} if(session.role!==user.role||session.email!==user.email)setUser(session);return true; };
+    const guard = (event: Event) => { if(!getDemoSession()&&page==='admin'){event.preventDefault();event.stopImmediatePropagation();expire();} };
+    document.addEventListener('click',guard,true);document.addEventListener('submit',guard,true);
+    const timer=setInterval(check,1500);
+    return () => {clearInterval(timer);document.removeEventListener('click',guard,true);document.removeEventListener('submit',guard,true);};
+  }, [user,page]);
   const totalPages = Math.max(1, Math.ceil(products.length / (section === "Bán hàng tại quầy" ? 6 : 12)));
   const currentPage = Math.min(productPage, totalPages);
   const visibleProducts = products.slice(
@@ -220,7 +232,7 @@ export function WebApp() {
     />
   );
   const open = (name: string) => {
-    setForm({ categoryId: db.categories.find((c) => !c.isDeleted)?.id || "", productType: 'Gọng kính' });
+    setForm({required:'no',measuredAt:vietnamDay(), categoryId: db.categories.find((c) => !c.isDeleted)?.id || "", productType: 'Gọng kính' });
     setNotice("");
     setModal(name);
   };
@@ -229,14 +241,16 @@ export function WebApp() {
     setSection(name);
     setQuery("");
     setCategory("");
-    setStockFilter('all'); setSort('name');
+    setStockFilter('all'); setSort('name'); setAdvanced({...emptyProductFilters});setProduction('all');setVoucherStatus('all');setFrom('');setTo('');
     setNotice("");
   };
   const submitOrder = (paid: boolean) => {
     if (page === 'admin') {
       try {
         if (!activeDraft) throw new Error('Hãy tạo đơn nháp trước.');
+        if(getDemoSession()?.id!==user?.id)throw new Error('Phiên đã hết hạn.');
         saveDraftItems(user!.id, activeDraft.id, cart, voucher);
+        if(paid){setForm({id:activeDraft.id});setModal('Thanh toán đơn chờ');refresh(v=>v+1);return;}
         completeDraft(user!.id, activeDraft.id, paid, payment as 'cash' | 'transfer');
         setCart({}); setDraftId(''); setCustomer(''); setVoucher(''); setModal('');
         setNotice(`${paid ? 'Đã thanh toán' : 'Đã lưu đơn chờ'} ${activeDraft.invoiceCode}.`);
@@ -262,6 +276,7 @@ export function WebApp() {
       customerId: client?.id,
       customerName: page === "store" ? form.fullName : client?.fullName,
       customerPhone: page === "store" ? form.phone : client?.phone,
+      taxRate:DEMO_TAX_RATE,
       employeeId: employee?.id || "ONLINE",
       employeeName: employee?.fullName || "Cửa hàng trực tuyến",
       voucherCode: voucher || undefined,
@@ -295,6 +310,9 @@ export function WebApp() {
     refresh(revision + 1);
   };
   const save = () => {
+    if(page==='admin'&&getDemoSession()?.id!==user?.id){setNotice('Phiên đã hết hạn. Hãy đăng nhập lại.');return;}
+    let initialPrescription;
+    try {initialPrescription=modal==='Thêm khách hàng'?prescriptionFromForm(form):undefined;}catch(e){setNotice((e as Error).message);return;}
     let result: { success: boolean; error?: string };
     if (modal === "Thêm phân loại")
       result = categoryService.createCategory(
@@ -317,6 +335,7 @@ export function WebApp() {
       });
     else
       result = customerService.addCustomer({
+        prescription:initialPrescription,
         fullName: form.fullName || "",
         phone: form.phone || "",
         email: form.email,
@@ -388,9 +407,10 @@ export function WebApp() {
           </Text>
         )}
         <Text style={[ui.h2, { marginVertical: 18 }]}>
-          Tổng cộng: {money(subtotal - discountAmount + (page === 'admin' ? activeDraft?.assemblyFee || 0 : 0))}
+          Tổng cộng: {money(invoiceTotals(subtotal,discountAmount,page==='admin'?activeDraft?.assemblyFee||0:0,page==='admin'?activeDraft?.taxRate||0:DEMO_TAX_RATE).totalAmount)}
         </Text>
       </View>
+      <Text style={ui.muted}>Thuế {page==='admin'?activeDraft?.taxRate||0:DEMO_TAX_RATE}%: {money(invoiceTotals(subtotal,discountAmount,page==='admin'?activeDraft?.assemblyFee||0:0,page==='admin'?activeDraft?.taxRate||0:DEMO_TAX_RATE).taxAmount)}</Text>
       {page === "store" ? (
         <>
           {field("fullName", "Họ và tên")}
@@ -425,15 +445,6 @@ export function WebApp() {
           {!!activeDraft?.assemblyFee&&<Text style={ui.label}>Công mài: {money(activeDraft.assemblyFee)} (không áp voucher)</Text>}
           {(activeDraft?.combos||[]).map(combo=><View key={combo.id} style={[ui.card,{padding:12,gap:6}]}><Text style={ui.label}>{combo.quantity} combo · {db.products.find(p=>p.id===combo.frameId)?.name} + {db.products.find(p=>p.id===combo.lensId)?.name}</Text><Text style={ui.muted}>Công mài {money(combo.quantity*combo.assemblyUnitFee)} · Số đo {combo.prescription.measuredAt}</Text><Button onPress={()=>{try{removeDraftCombo(user!.id,activeDraft!.id,combo.id);const updated=db.invoices.find(i=>i.id===draftId);setCart(itemQuantities(updated?.items||[]));if(!updated){setDraftId('');setCustomer('');setVoucher('');}refresh(v=>v+1);}catch(e){setNotice((e as Error).message);}}}>Xóa</Button></View>)}
           {activeDraft?.prescription && <Text style={ui.muted}>Đã lưu thông số đo mắt ngày {activeDraft.prescription.measuredAt}.</Text>}
-          <Choice
-            label="Thanh toán"
-            value={payment}
-            onChange={setPayment}
-            options={[
-              { label: "Tiền mặt", value: "cash" },
-              { label: "Chuyển khoản", value: "transfer" },
-            ]}
-          />
           <View style={ui.row}>
             <Button disabled={!items.length} onPress={() => submitOrder(false)}>
               Lưu đơn chờ
@@ -803,6 +814,7 @@ export function WebApp() {
                       <View style={{flex:1,minWidth:120}}><Text style={ui.label}>Tồn kho</Text><select aria-label="Lọc tồn kho tại quầy" value={stockFilter} onChange={e=>setStockFilter(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="all">Tất cả</option><option value="available">Còn hàng</option><option value="empty">Hết hàng</option></select></View>
                       <View style={{flex:1,minWidth:130}}><Text style={ui.label}>Sắp xếp</Text><select aria-label="Sắp xếp tại quầy" value={sort} onChange={e=>setSort(e.target.value)} style={{width:'100%',padding:11,border:'1px solid #cad5c5',borderRadius:8,background:'#fff',color:'#284e43'}}><option value="name">Tên A–Z</option><option value="price-asc">Giá tăng</option><option value="price-desc">Giá giảm</option></select></View>
                     </View>
+                    <ProductFilters value={advanced} onChange={setAdvanced} onReset={()=>{setAdvanced({...emptyProductFilters});setQuery('');setCategory('');setStockFilter('all');setSort('name');}}/>
                     {productCards}
                   </View>
                   <View style={[ui.card, { width: width < 1000 ? "100%" : width < 1300 ? 360 : 410, minWidth: 0 }]}>
@@ -863,10 +875,13 @@ export function WebApp() {
                       )}
                   </View>
                   {section === "Sản phẩm" ? (<>
+                    <ProductFilters value={advanced} onChange={setAdvanced} onReset={()=>{setAdvanced({...emptyProductFilters});setQuery('');setCategory('');setStockFilter('all');setSort('name');}}/>
+                    {user?.role==='admin'&&<ExcelImport kind="product" actorId={user.id} onChanged={()=>refresh(v=>v+1)}/>}
+
                     <Choice label="Tồn kho" value={stockFilter} onChange={setStockFilter} options={[{ label: 'Tất cả', value: 'all' }, { label: 'Còn hàng', value: 'available' }, { label: 'Hết hàng', value: 'empty' }]} />
                     <Choice label="Sắp xếp" value={sort} onChange={setSort} options={[{ label: 'Tên', value: 'name' }, { label: 'Giá tăng', value: 'price-asc' }, { label: 'Giá giảm', value: 'price-desc' }]} />
                     <Table
-                      key={`${query}-${stockFilter}-${sort}`}
+                      key={`${productQuery}-${stockFilter}-${sort}-${JSON.stringify(advanced)}`}
                       headings={["Sản phẩm", "Giá bán", "Tồn kho", "Phân loại", "Thao tác"]}
                       rows={products.map((v, i) => [
                         <Pressable onPress={() => setDetail(v)} style={{ flexDirection: 'row', gap: 12, alignItems: 'center', minWidth: 0 }}>
@@ -879,24 +894,16 @@ export function WebApp() {
                       ])}
                     /></>
                   ) : section === "Phân loại kính" ? (
+                    <>{user?.role==='admin'&&<ExcelImport kind="category" actorId={user!.id} onChanged={()=>refresh(v=>v+1)}/>}
                     <CategoryList actorId={user!.id} query={query} revision={revision} admin={user?.role==='admin'}
                       onDetail={id=>setBaoDialog({action:'category-detail',id})}
                       onEdit={id=>setBaoDialog({action:'category-edit',id})}
-                      onDelete={c=>{setForm({id:c.id,name:c.name});setModal('Xóa phân loại');}} />
+                      onDelete={c=>{setForm({id:c.id,name:c.name});setModal('Xóa phân loại');}} /></>
                   ) : section === "Hóa đơn" ? (
                     <>
-                      <View style={ui.row}>
-                        <Field
-                          label="Từ ngày (YYYY-MM-DD)"
-                          value={from}
-                          onChange={setFrom}
-                        />
-                        <Field
-                          label="Đến ngày (YYYY-MM-DD)"
-                          value={to}
-                          onChange={setTo}
-                        />
-                      </View>
+                      <View style={ui.row}><DateField label="Từ ngày hóa đơn" value={from} onChange={setFrom}/><DateField label="Đến ngày hóa đơn" value={to} onChange={setTo}/></View>
+                      <SelectField label="Tiến độ gia công" value={production} onChange={setProduction} options={[{label:'Tất cả',value:'all'},{label:'Không gia công',value:'none'},{label:'Đang cắt tròng',value:'cutting_lens'},{label:'Hoàn tất',value:'completed'},{label:'Đã giao',value:'delivered'}]}/>
+                      <Button onPress={()=>{setFrom('');setTo('');setStatus('all');setProduction('all');setQuery('');}}>Xóa bộ lọc hóa đơn</Button>
                       <Choice
                         value={status}
                         onChange={setStatus}
@@ -910,7 +917,7 @@ export function WebApp() {
                       />
                       <InvoiceList
                         actorId={user!.id}
-                        filter={{ searchQuery: query, fromDate: from || undefined, toDate: to || undefined, paymentStatus: status as 'all' | 'paid' | 'pending' | 'draft' | 'cancelled' }}
+                        filter={{ productionStatus:production as any, searchQuery: query, fromDate: from || undefined, toDate: to || undefined, paymentStatus: status as 'all' | 'paid' | 'pending' | 'draft' | 'cancelled' }}
                         onDetail={id => setBaoDialog({ action: 'invoice-detail', id })}
                         onOpen={invoice => {
                           setDraftId(invoice.id);
@@ -922,7 +929,10 @@ export function WebApp() {
                       />
                     </>
                   ) : section === "Voucher" ? (
-                    <Table
+                    <><SelectField label="Trạng thái voucher" value={voucherStatus} onChange={v=>setVoucherStatus(v as typeof voucherStatus)} options={[{label:'Tất cả',value:'all'},{label:'Đang áp dụng',value:'active'},{label:'Sắp áp dụng',value:'upcoming'},{label:'Hết hạn',value:'expired'},{label:'Vô hiệu',value:'disabled'}]}/>
+                    <Button onPress={()=>{setVoucherStatus('all');setQuery('');}}>Xóa bộ lọc voucher</Button>
+
+                    <Table key={`${query}-${voucherStatus}`}
                       headings={[
                         "Mã ưu đãi",
                         "Tên",
@@ -930,13 +940,7 @@ export function WebApp() {
                         "Hiệu lực",
                         "Thao tác",
                       ]}
-                      rows={db.vouchers
-                        .filter((v) =>
-                          (v.code + v.name)
-                            .toLowerCase()
-                            .includes(query.toLowerCase()),
-                        )
-                        .map((v) => [
+                      rows={voucherService.filterVouchers({query,status:voucherStatus}).map((v) => [
                           v.code,
                           v.name,
                           v.discountType === "percentage"
@@ -971,7 +975,7 @@ export function WebApp() {
                             </Button>
                           </View>,
                         ])}
-                    />
+                    /></>
                   ) : section === "Khách hàng" ? (
                     <Table
                       key={`customers-${query}`}
@@ -1126,6 +1130,7 @@ export function WebApp() {
               {field("phone", "Số điện thoại")}
               {field("email", "Email")}
               {field("address", "Địa chỉ")}
+              <MeasurementForm form={form} set={(key,value)=>setForm(f=>({...f,[key]:value}))} showCustomer={false}/>
               <Button primary onPress={save}>
                 Lưu khách hàng
               </Button>
@@ -1169,32 +1174,7 @@ export function WebApp() {
               return v ? (
                 <>
                   <InvoiceContent invoice={v} />
-                  {modal === "Thanh toán đơn chờ" && (
-                    <>
-                      <Choice
-                        label="Phương thức"
-                        value={payment}
-                        onChange={setPayment}
-                        options={[
-                          { label: "Tiền mặt", value: "cash" },
-                          { label: "Chuyển khoản", value: "transfer" },
-                        ]}
-                      />
-                      <Button
-                        primary
-                        onPress={() => {
-                          try {
-                            completeDraft(user!.id, v.id, true, payment as 'cash' | 'transfer');
-                            setModal("");
-                            setNotice("Đã thanh toán hóa đơn.");
-                            refresh(revision + 1);
-                          } catch (e) { setNotice((e as Error).message); }
-                        }}
-                      >
-                        Xác nhận thanh toán
-                      </Button>
-                    </>
-                  )}
+                  {modal === 'Thanh toán đơn chờ' && <PaymentForm actorId={user!.id} invoiceId={v.id} onPaid={()=>{setModal('');setCart({});setDraftId('');setCustomer('');setVoucher('');refresh(n=>n+1);setNotice('Đã thanh toán hóa đơn.');}}/>}
                 </>
               ) : null;
             })()

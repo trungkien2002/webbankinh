@@ -1,3 +1,4 @@
+import {Toast} from './toast';
 import React, { useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Product } from '../contracts/domain';
@@ -39,7 +40,7 @@ export function ProductEdit({ actorId, productId, onSaved }: {
     <Table headings={['Thời điểm (giờ VN)', 'Giá cũ', 'Giá mới', 'Người sửa']} rows={[...db.productPriceChanges].filter(change => change.productId === productId)
       .reverse()
       .map(change => [vietnamInvoiceDate(change.changedAt), money(change.oldPrice), money(change.newPrice), `${db.users.find(user => user.id === change.changedBy)?.username || change.changedBy} · ${change.changedBy}`])} />
-    {!!error && <Text selectable accessibilityRole="alert" style={ui.error}>{error}</Text>}
+    <Toast message={error} onClose={()=>setError('')}/>
     <Button primary disabled={saving} onPress={() => {
       if (guard.current) return;
       guard.current = true; setSaving(true); setError('');

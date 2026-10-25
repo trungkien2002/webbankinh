@@ -1,3 +1,4 @@
+import {validateBarcode} from './barcode-validation';
 import {
   Category,
   Customer,
@@ -14,6 +15,7 @@ import { voucherService } from './voucherService';
 import { revokeUserSessions } from './demoSession';
 import { itemQuantities } from './combo';
 import { saveDraftItems } from './bao-service';
+import {invoiceTotals} from './invoice-totals';
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -159,6 +161,7 @@ export function previewProductImport(userId: string, sheet: unknown[][]) {
   const valid: ProductImportRow[] = [];
   const barcodes = new Map<string, string>();
   const skuBarcodes = new Map<string, string>();
+  const quantities=new Map<string,number>();
   parsed.rows.forEach((row, index) => {
     const line = index + 2;
     if (row.every(cell => !cell)) return;
@@ -175,22 +178,20 @@ export function previewProductImport(userId: string, sheet: unknown[][]) {
       errors.push({ line, message: `SKU không có trên hệ thống: ${sku}` });
       return;
     }
-    if (!Number.isInteger(quantity) || quantity <= 0) {
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       errors.push({ line, message: 'Số lượng phải là số nguyên dương.' });
       return;
     }
+    const accumulated=(quantities.get(sku)||0)+quantity;
+    if(!Number.isSafeInteger(accumulated+product.stock)){errors.push({line,message:'Tổng tồn kho vượt giới hạn số nguyên an toàn.'});return;}
     if (barcode) {
-      if ((barcodes.has(barcode) && barcodes.get(barcode) !== sku) || db.products.some(p => p.barcode === barcode && p.id !== product.id && !p.isDeleted)) {
-        errors.push({ line, message: `Mã vạch trùng: ${barcode}` });
-        return;
-      }
-      if (skuBarcodes.has(sku) && skuBarcodes.get(sku) !== barcode) {
-        errors.push({ line, message: `SKU có nhiều mã vạch trong file: ${sku}` });
-        return;
-      }
-      barcodes.set(barcode, sku);
-      skuBarcodes.set(sku, barcode);
+      try{validateBarcode(barcode,product.id);}catch(e){errors.push({line,message:(e as Error).message});return;}
+      const normalized=barcode.toUpperCase();
+      if(barcodes.has(normalized)&&barcodes.get(normalized)!==sku){errors.push({line,message:`Mã vạch trùng: ${barcode}`});return;}
+      if(skuBarcodes.has(sku)&&skuBarcodes.get(sku)!==normalized){errors.push({line,message:`SKU có nhiều mã vạch trong file: ${sku}`});return;}
+      barcodes.set(normalized,sku);skuBarcodes.set(sku,normalized);
     }
+    quantities.set(sku,accumulated);
     valid.push({ sku, barcode, quantity, lot: lot || undefined });
   });
   return { valid, errors, totalRows: parsed.rows.filter(r => r.some(Boolean)).length };
@@ -247,7 +248,7 @@ export function removeInvoiceItem(userId: string, invoiceId: string, itemId: str
   if (!item) throw new Error('Dòng hóa đơn không tồn tại.');
   const items = invoice.items.filter(i => i.id !== itemId);
   if (!items.length) { deleteUnpaidInvoice(userId, invoiceId); return undefined; }
-  if (invoice.combos?.length) {
+  if (invoice.combos?.length || invoice.taxRate) {
     saveDraftItems(userId, invoiceId, itemQuantities(items), invoice.voucherCode);
     return db.invoices.find(i => i.id === invoiceId);
   }
@@ -289,7 +290,7 @@ function crc16(value: string) {
 export function payInvoice(
   userId: string,
   invoiceId: string,
-  input: { method: InvoicePaymentMethod; cashReceived?: number; idempotencyKey: string },
+  input: { method: InvoicePaymentMethod; cashReceived?: number; idempotencyKey: string; reference?: string },
 ): Invoice {
   actor(userId);
   const key = input.idempotencyKey.trim();
@@ -308,13 +309,13 @@ export function payInvoice(
     const invoice = editableInvoice(userId, invoiceId);
     const discount = invoice.voucherCode ? voucherService.applyVoucher({voucherCode:invoice.voucherCode,subtotal:invoice.subtotal}) : undefined;
     if (discount && !discount.success) throw new Error(discount.error || 'Ưu đãi không hợp lệ.');
-    const payable = invoice.subtotal - (discount?.discountAmount || 0) + (invoice.assemblyFee || 0);
+    const payable = invoiceTotals(invoice.subtotal,discount?.discountAmount||0,invoice.assemblyFee||0,invoice.taxRate||0).totalAmount;
     if (input.method === 'cash') {
       if (!Number.isFinite(input.cashReceived) || (input.cashReceived || 0) < payable) {
         throw new Error('Số tiền mặt nhận chưa đủ để thanh toán.');
       }
     }
-    completeDraft(userId, invoiceId, true, input.method, key);
+    completeDraft(userId, invoiceId, true, input.method, key, input.reference);
     return db.invoices.find(i => i.id === invoiceId)!;
   } finally {
     paying.delete(invoiceId);

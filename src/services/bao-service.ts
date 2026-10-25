@@ -3,6 +3,7 @@ import { Category, Employee, EyePrescription, Invoice, InvoiceItem, User, Vouche
 import { db } from './database';
 import { voucherService } from './voucherService';
 import { ASSEMBLY_UNIT_FEE, buildDraftItems, itemQuantities } from './combo';
+import { invoiceTotals, DEMO_TAX_RATE } from './invoice-totals';
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -44,7 +45,7 @@ export function createDraft(userId: string): Invoice {
   const invoice: Invoice = {
     id: id('INV'), invoiceCode: `HD${String(number).padStart(4, '0')}`,
     employeeId: employee.id, employeeName: employee.fullName, items: [],
-    subtotal: 0, discountAmount: 0, totalAmount: 0,
+    subtotal: 0, discountAmount: 0, totalAmount: 0, taxRate:DEMO_TAX_RATE,taxAmount:0,
     paymentMethod: 'cash', paymentStatus: 'draft', productionStatus: 'none',
     createdAt: now(), updatedAt: now(),
   };
@@ -81,7 +82,7 @@ export function saveDraftItems(userId: string, invoiceId: string, quantities: Re
     const invoice = data.invoices.find(i => i.id === invoiceId)!;
     Object.assign(invoice, { items, combos, assemblyFee, subtotal, discountAmount: discount?.discountAmount || 0,
       voucherCode: discount?.voucherCode, voucherDiscountSnapshot: discount?.discountAmount || 0,
-      totalAmount: subtotal - (discount?.discountAmount || 0) + assemblyFee, updatedAt: now() });
+      ...invoiceTotals(subtotal,discount?.discountAmount||0,assemblyFee,previous.taxRate||0), updatedAt: now() });
   });
 }
 export function addDraftCombo(userId: string, invoiceId: string, frameId: string, lensId: string, quantity: number) {
@@ -102,7 +103,7 @@ export function addDraftCombo(userId: string, invoiceId: string, frameId: string
   const discount = invoice.voucherCode ? voucherService.applyVoucher({voucherCode:invoice.voucherCode,subtotal}) : undefined;
   if (discount && !discount.success) throw new Error(discount.error);
   db.transaction(data=>Object.assign(data.invoices.find(i=>i.id===invoiceId)!, result, {subtotal,discountAmount:discount?.discountAmount||0,
-    voucherDiscountSnapshot:discount?.discountAmount||0,totalAmount:subtotal-(discount?.discountAmount||0)+result.assemblyFee,updatedAt:now()}));
+    voucherDiscountSnapshot:discount?.discountAmount||0,...invoiceTotals(subtotal,discount?.discountAmount||0,result.assemblyFee,invoice.taxRate||0),updatedAt:now()}));
 }
 export function removeDraftCombo(userId: string, invoiceId: string, comboId: string) {
   const invoice = editable(userId,invoiceId), combo = invoice.combos?.find(c=>c.id===comboId);
@@ -117,7 +118,7 @@ export function removeDraftCombo(userId: string, invoiceId: string, comboId: str
   const discount = invoice.voucherCode ? voucherService.applyVoucher({voucherCode:invoice.voucherCode,subtotal}) : undefined;
   if (discount && !discount.success) throw new Error(discount.error);
   db.transaction(data=>Object.assign(data.invoices.find(i=>i.id===invoiceId)!,result,{subtotal,discountAmount:discount?.discountAmount||0,
-    voucherDiscountSnapshot:discount?.discountAmount||0,totalAmount:subtotal-(discount?.discountAmount||0)+result.assemblyFee,updatedAt:now()}));
+    voucherDiscountSnapshot:discount?.discountAmount||0,...invoiceTotals(subtotal,discount?.discountAmount||0,result.assemblyFee,invoice.taxRate||0),updatedAt:now()}));
 }
 export function setDraftCustomer(userId: string, invoiceId: string, customerId: string) {
   const current = editable(userId, invoiceId);
@@ -158,7 +159,8 @@ export function saveMeasurement(userId: string, invoiceId: string, customerId: s
       prescription: prescription ? JSON.parse(JSON.stringify(prescription)) : undefined, updatedAt: now() });
   });
 }
-export function completeDraft(userId: string, invoiceId: string, paid: boolean, paymentMethod: import('../contracts/domain').InvoicePaymentMethod, idempotencyKey?: string) {
+export function completeDraft(userId: string, invoiceId: string, paid: boolean, paymentMethod: import('../contracts/domain').InvoicePaymentMethod, idempotencyKey?: string, reference?: string) {
+  if(reference!==undefined&&(!reference.trim()||reference.length>80))throw new Error('Mã tham chiếu phải có 1–80 ký tự.');
   if (!['cash', 'transfer', 'card', 'qr'].includes(paymentMethod)) throw new Error('Phương thức thanh toán không hợp lệ.');
   const invoice = editable(userId, invoiceId);
   if (!invoice.items.length) throw new Error('Hãy thêm sản phẩm trước khi lưu đơn chờ hoặc thanh toán.');
@@ -177,11 +179,11 @@ export function completeDraft(userId: string, invoiceId: string, paid: boolean, 
     Object.assign(target, { paymentStatus: paid ? 'paid' : 'pending', paymentMethod,
       productionStatus: target.prescription ? 'cutting_lens' : 'none', paidAt: paid ? now() : undefined, updatedAt: now(),
       discountAmount: discount?.discountAmount || 0, voucherDiscountSnapshot: discount?.discountAmount || 0,
-      totalAmount: target.subtotal - (discount?.discountAmount || 0) + (target.assemblyFee || 0) });
+      ...invoiceTotals(target.subtotal,discount?.discountAmount||0,target.assemblyFee||0,target.taxRate||0) });
     if (paid) {
       if (idempotencyKey) {
         if (data.payments.some(p => p.idempotencyKey === idempotencyKey)) throw new Error('Khóa thanh toán đã được sử dụng.');
-        data.payments.push({id: id('PAY'), invoiceId, idempotencyKey, method: paymentMethod, amount: target.totalAmount, createdAt: now()});
+        data.payments.push({id: id('PAY'), invoiceId, idempotencyKey, reference:paymentMethod!=='cash'?reference?.trim():undefined, method: paymentMethod, amount: target.totalAmount, createdAt: now()});
       }
       for (const product of data.products) product.stock -= quantities.get(product.id) || 0;
       const voucher = data.vouchers.find(v => v.code === target.voucherCode);

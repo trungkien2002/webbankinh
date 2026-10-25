@@ -1,3 +1,5 @@
+import {ProductFilters,emptyProductFilters} from './filter-controls';
+import {productService} from '../services/productService';
 import { Toast } from './toast';
 import { CustomerProfile } from './customerProfile';
 
@@ -27,7 +29,7 @@ function readRoute(): Route {
 function Photo({ product, height = 260, zoom = 1 }: { product: Product; height?: number; zoom?: number }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [product.id]);
-  return <View style={{ height, backgroundColor: product.productType === 'Tròng kính' ? '#fff' : '#e9e9e9', overflow: 'hidden', justifyContent: 'center' }}><Image accessibilityLabel={product.name} source={{ uri: failed ? glassesArt('#284e43', product.productType === 'Kính râm', false) : catalogImage(product.id) || product.imageUrl }} onError={() => setFailed(true)} resizeMode="contain" style={{ width: '100%', height: '100%', transform: [{ scale: zoom }], mixBlendMode: product.productType === 'Tròng kính' ? 'normal' : 'darken' } as any} /></View>;
+  return <View style={{ height, backgroundColor: product.productType === 'Tròng kính' ? '#fff' : '#e9e9e9', overflow: 'hidden', justifyContent: 'center' }}><Image accessibilityLabel={product.name} source={{ uri: failed ? glassesArt('#284e43', product.productType === 'Kính râm', false) : (product.imageOverride?product.imageUrl:undefined) || catalogImage(product.id) || product.imageUrl }} onError={() => setFailed(true)} resizeMode="contain" style={{ width: '100%', height: '100%', transform: [{ scale: zoom }], mixBlendMode: product.productType === 'Tròng kính' ? 'normal' : 'darken' } as any} /></View>;
 }
 function Card({ product, open, add }: { product: Product; open: () => void; add: () => void }) {
   const [hover, setHover] = useState(false);
@@ -45,6 +47,7 @@ export function Storefront({ add, items, cartContent, admin, notice, cartProps }
   const [route, setRoute] = useState<Route>(readRoute);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
+  const [advanced,setAdvanced]=useState({...emptyProductFilters});
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [preview, setPreview] = useState<'cart' | 'collection' | null>(null);
@@ -55,17 +58,17 @@ export function Storefront({ add, items, cartContent, admin, notice, cartProps }
   const [sort, setSort] = useState('name');
   const scroll = React.useRef<ScrollView>(null);
   useEffect(() => { const update = () => { setRoute(readRoute()); setPreview(null); setZoom(1); scroll.current?.scrollTo({ y: 0, animated: false }); }; window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update); }, []);
-  useEffect(() => setPage(1), [query, category, sort]);
+  useEffect(() => setPage(1), [query, category, sort,advanced]);
   useEffect(() => { window.scrollTo(0, 0); scroll.current?.scrollTo({ y: 0, animated: false }); }, [route.kind, route.id]);
   const go = (kind: Route['kind'], id = '') => { window.location.hash = kind === 'home' ? '/' : `/${kind}${id ? '/' + encodeURIComponent(id) : ''}`; setPreview(null); };
-  const products = db.products.filter(v => !v.isDeleted && (!category || v.categoryId === category) && `${v.name} ${v.sku} ${v.brand || ''}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())).sort((a, b) => sort === 'low' ? a.price - b.price : sort === 'high' ? b.price - a.price : a.name.localeCompare(b.name));
+  const products = productService.searchProducts({...advanced,query,categoryId:category||undefined}).sort((a,b)=>sort==='low'?a.price-b.price||a.id.localeCompare(b.id):sort==='high'?b.price-a.price||a.id.localeCompare(b.id):a.name.localeCompare(b.name,'vi')||a.id.localeCompare(b.id));
   const pages = Math.max(1, Math.ceil(products.length / 12));
   const current = Math.min(page, pages);
   const visible = products.slice((current - 1) * 12, current * 12);
   const columns = width >= 1200 ? 3 : width >= 600 ? 2 : 1;
   const product = db.products.find(v => v.id === route.id && !v.isDeleted);
   const grid = <><View style={{ gap: 22 }}>{Array.from({ length: Math.ceil(visible.length / columns) }, (_, row) => <View key={row} style={{ flexDirection: 'row', gap: 22 }}>{Array.from({ length: columns }, (_, col) => { const v = visible[row * columns + col]; return v ? <View key={v.id} style={{ flex: 1, minWidth: 0 }}><Card product={v} open={() => go('product', v.id)} add={() => addProduct(v)} /></View> : <View key={col} style={{ flex: 1 }} />; })}</View>)}</View>{!visible.length && <Text style={ui.muted}>Không tìm thấy sản phẩm phù hợp.</Text>}<View style={[ui.row, { justifyContent: 'center', marginVertical: 30 }]}><Button disabled={current === 1} onPress={() => setPage(current - 1)}>‹</Button>{Array.from({ length: pages }, (_, i) => <Button key={i} primary={current === i + 1} onPress={() => setPage(i + 1)}>{i + 1}</Button>)}<Button disabled={current === pages} onPress={() => setPage(current + 1)}>›</Button></View></>;
-  const filters = <><Choice value={category} onChange={setCategory} options={[{ label: 'Tất cả', value: '' }, ...db.categories.filter(c => !c.isDeleted).map(c => ({ label: c.name, value: c.id }))]} /><Field label="Tìm sản phẩm" placeholder="Tên kính, mã sản phẩm…" value={query} onChange={setQuery} /><Choice value={sort} onChange={setSort} options={[{ label: 'Tên A–Z', value: 'name' }, { label: 'Giá tăng dần', value: 'low' }, { label: 'Giá giảm dần', value: 'high' }]} /></>;
+  const filters = <><ProductFilters value={advanced} onChange={setAdvanced} onReset={()=>{setAdvanced({...emptyProductFilters});setQuery('');setCategory('');setSort('name');}}/><Choice value={category} onChange={setCategory} options={[{ label: 'Tất cả', value: '' }, ...db.categories.filter(c => !c.isDeleted).map(c => ({ label: c.name, value: c.id }))]} /><Field label="Tìm sản phẩm" placeholder="Tên kính, mã sản phẩm…" value={query} onChange={setQuery} /><Choice value={sort} onChange={setSort} options={[{ label: 'Tên A–Z', value: 'name' }, { label: 'Giá tăng dần', value: 'low' }, { label: 'Giá giảm dần', value: 'high' }]} /></>;
   return <ScrollView ref={scroll} style={{ backgroundColor: p.cream }}><View style={{ backgroundColor: p.green, padding: 10 }}><Text style={{ textAlign: 'center', color: '#f0eddf', fontSize: 10, letterSpacing: 2 }}>TÌM THẤY GÓC NHÌN CỦA RIÊNG BẠN</Text></View>
     <View style={[ui.row, { padding: small ? 18 : 30, justifyContent: 'space-between', borderBottomWidth: 1, borderColor: p.line, zIndex: 10 }]}><Pressable accessibilityRole="button" accessibilityLabel="Về trang chủ" onPress={() => go('home')}><Text style={{ fontFamily: 'ElanSans', fontSize: width < 450 ? 16 : small ? 20 : 25, letterSpacing: width < 450 ? 1 : 3, color: p.green }}>ÉLAN / STUDIO</Text></Pressable><View style={ui.row}>
       {(['collection', 'cart'] as const).map(kind => <Pressable key={kind} onHoverIn={() => setPreview(kind)} onHoverOut={() => setPreview(null)}><IconButton name={kind === 'cart' ? 'bag' : 'grid'} label={kind === 'cart' ? 'Giỏ hàng' : 'Bộ sưu tập'} count={kind === 'cart' ? items.reduce((n, v) => n + v.quantity, 0) : undefined} onPress={() => go(kind)} />{preview === kind && !small && <View style={{ position: 'absolute', top: 48, right: 0, width: 330, backgroundColor: '#fff', padding: 22, borderRadius: 12, borderWidth: 1, borderColor: p.line, boxShadow: '0 12px 36px #203c3020' } as any}><Text style={ui.h2}>{kind === 'cart' ? 'Giỏ hàng của bạn' : 'Bộ sưu tập Élan'}</Text>{kind === 'cart' ? <>{!items.length && <Text style={ui.muted}>Giỏ hàng đang trống.</Text>}{items.slice(0, 3).map(item => <Text key={item.id} style={[ui.muted, { marginTop: 12 }]}>{item.productName} × {item.quantity}</Text>)}<Text style={[ui.label, { marginVertical: 16 }]}>{money(items.reduce((n, v) => n + v.lineTotal, 0))}</Text></> : <Text style={[ui.muted, { marginVertical: 16 }]}>Gọng kính · Kính râm · Tròng kính · Phụ kiện</Text>}<Button primary onPress={() => go(kind)}>{kind === 'cart' ? 'Xem giỏ hàng' : 'Khám phá bộ sưu tập'}</Button></View>}</Pressable>)}<IconButton name="user" label="Tài khoản khách hàng" onPress={() => go("account")} /></View></View>

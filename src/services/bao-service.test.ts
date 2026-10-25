@@ -56,7 +56,7 @@ describe('BH001/BH005/HD003/KH003 — draft to payment', () => {
     saveDraftItems('USR001', draft.id, { PRD001: 2 }, 'new10');
     saveMeasurement('USR001', draft.id, 'CUS001', prescription);
     const saved = invoiceDetail('USR002', draft.id);
-    expect(saved.totalAmount).toBe(1530000);
+    expect(saved.totalAmount).toBe(1683000);
     expect(JSON.parse(store.get('webbankinh_db')!).invoices[0].items).toHaveLength(1);
     prescription.sphereRight = -1.5;
     completeDraft('USR001', draft.id, true, 'transfer');

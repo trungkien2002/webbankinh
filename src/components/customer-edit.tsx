@@ -1,3 +1,4 @@
+import {Toast} from './toast';
 import React, { useRef, useState } from 'react';
 import { Text, View, useWindowDimensions } from 'react-native';
 import { EyePrescription } from '../contracts/domain';
@@ -55,7 +56,7 @@ export function CustomerEdit({ actorId, customerId, onSaved }: {
       {field('pupillaryDistance', 'PD (mm)')}{field('measuredAt', 'Ngày đo (YYYY-MM-DD)')}{field('notes', 'Ghi chú lần đo')}
       <Text style={ui.muted}>Giới hạn nhập demo: SPH −30…30; CYL −10…10; AXIS 0…180; PD 40…80 mm.</Text>
     </>}
-    {!!error && <Text selectable accessibilityRole="alert" style={ui.error}>{error}</Text>}
+    <Toast message={error} onClose={()=>setError('')}/>
     <Button primary disabled={saving} onPress={save}>{saving ? 'Đang lưu…' : 'Lưu khách hàng'}</Button>
   </View>;
 }

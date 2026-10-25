@@ -1,3 +1,5 @@
+import {ThermalReceipt} from './thermal-receipt';
+import {DateField} from './filter-controls';
 import { MeasurementForm } from './measurementForm';
 import { Toast } from './toast';
 import React, { useRef, useState } from 'react';
@@ -22,11 +24,12 @@ const productionLabels: Record<string,string> = { none: 'Không gia công', cutt
 export function InvoiceContent({ invoice }: { invoice: Invoice }) {
   const [error, setError] = useState('');
   const prescription = invoice.prescription;
-  return <View style={{ gap: 20 }}>
+  const [thermal,setThermal]=useState(false);
+  return <View style={{ gap: 20 }}>{thermal&&<ThermalReceipt invoice={invoice} onClose={()=>setThermal(false)}/>}<Button onPress={()=>setThermal(true)}>In hóa đơn 80mm</Button>
     <Text selectable style={ui.h2}>{invoice.invoiceCode}</Text>
     <Text selectable style={[ui.text, { lineHeight: 28, padding: 18, backgroundColor: "#f0f4ee", borderRadius: 10 }]}>Ngày tạo: {displayDate(invoice.createdAt)}{'\n'}Khách: {invoice.customerName || 'Khách vãng lai'} · {invoice.customerPhone || '—'}{'\n'}Nhân viên: {invoice.employeeName}{'\n'}Trạng thái: {paymentLabels[invoice.paymentStatus] || invoice.paymentStatus} · Gia công: {productionLabels[invoice.productionStatus] || invoice.productionStatus}</Text>
     <Table headings={['Sản phẩm', 'SL', 'Đơn giá', 'Thành tiền']} rows={invoice.items.map(item => [item.productName + ' / ' + item.sku + (item.comboId ? ' · Combo' : ''), String(item.quantity), money(item.unitPrice), money(item.lineTotal)])} />
-    <Text selectable style={[ui.text, { lineHeight: 30, padding: 18, backgroundColor: "#f0f4ee", borderRadius: 10 }]}>Tiền hàng: {money(invoice.subtotal)}{'\n'}Công mài: {money(invoice.assemblyFee || 0)}{'\n'}Giảm giá: {money(invoice.discountAmount)} · {invoice.voucherCode || '—'}{'\n'}Tổng: {money(invoice.totalAmount)}{'\n'}Thanh toán: {invoice.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'} · {displayDate(invoice.paidAt)}</Text>
+    <Text selectable style={[ui.text, { lineHeight: 30, padding: 18, backgroundColor: "#f0f4ee", borderRadius: 10 }]}>Tiền hàng: {money(invoice.subtotal)}{'\n'}Công mài: {money(invoice.assemblyFee || 0)}{'\n'}Giảm giá: {money(invoice.discountAmount)} · {invoice.voucherCode || '—'}{'\n'}Thuế {invoice.taxRate||0}%: {money(invoice.taxAmount||0)}{'\n'}Tổng: {money(invoice.totalAmount)}{'\n'}Thanh toán: {({cash:'Tiền mặt',transfer:'Chuyển khoản',qr:'QR mô phỏng',card:'Thẻ mô phỏng'})[invoice.paymentMethod]} · {displayDate(invoice.paidAt)}</Text>
     {prescription ? <><Text style={ui.h2}>Thông số đo mắt</Text><Table headings={['Mắt', 'SPH', 'CYL', 'AXIS']} rows={[
       ['Phải', String(prescription.sphereRight), String(prescription.cylinderRight), String(prescription.axisRight)],
       ['Trái', String(prescription.sphereLeft), String(prescription.cylinderLeft), String(prescription.axisLeft)],
@@ -105,7 +108,7 @@ export function BaoDialog({ action, targetId = '', userId = '', onClose, onSaved
     if (action === 'voucher-create') return <>
       {field('code', 'Mã voucher')}{field('name', 'Tên chương trình')}
       <Choice label="Loại giảm" value={form.discountType} onChange={value => set('discountType', value)} options={[{ label: 'Phần trăm', value: 'percentage' }, { label: 'Số tiền VND', value: 'fixed' }]} />
-      {field('discountValue', 'Mức giảm')}{field('minOrderValue', 'Đơn tối thiểu (VND)')}{field('maxDiscountAmount', 'Trần giảm (VND, tùy chọn)')}{field('startDate', 'Từ ngày (YYYY-MM-DD)')}{field('endDate', 'Đến ngày (YYYY-MM-DD)')}
+      {field('discountValue', 'Mức giảm')}{field('minOrderValue', 'Đơn tối thiểu (VND)')}{field('maxDiscountAmount', 'Trần giảm (VND, tùy chọn)')}<DateField label="Ngày bắt đầu voucher" value={form.startDate||''} onChange={v=>set('startDate',v)}/><DateField label="Ngày kết thúc voucher" value={form.endDate||''} onChange={v=>set('endDate',v)}/>
     </>;
     if (action === 'measurement') return <MeasurementForm form={form} set={set} />;
     return <>

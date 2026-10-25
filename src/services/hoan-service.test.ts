@@ -135,10 +135,10 @@ describe('BH003/BH004/HD001 — cart line, pay, search invoices', () => {
     saveDraftItems('USR001', draft.id, { PRD001: 1 });
     expect(() => payInvoice('USR001', draft.id, { method: 'cash', cashReceived: 100, idempotencyKey: 'pay-1' })).toThrow(/tiền mặt/);
     const key = 'pay-once';
-    const paid = payInvoice('USR001', draft.id, { method: 'cash', cashReceived: 850000, idempotencyKey: key });
+    const paid = payInvoice('USR001', draft.id, { method: 'cash', cashReceived: 935000, idempotencyKey: key });
     expect(paid.paymentStatus).toBe('paid');
     expect(db.products[0].stock).toBe(11);
-    expect(payInvoice('USR001', draft.id, { method: 'cash', cashReceived: 850000, idempotencyKey: key }).id).toBe(paid.id);
+    expect(payInvoice('USR001', draft.id, { method: 'cash', cashReceived: 935000, idempotencyKey: key }).id).toBe(paid.id);
     expect(db.products[0].stock).toBe(11);
     const qrDraft = createDraft('USR001');
     saveMeasurement('USR001', qrDraft.id, 'CUS001', prescription);

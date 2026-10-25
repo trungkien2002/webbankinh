@@ -1,3 +1,4 @@
+import {Toast} from './toast';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { db } from '../services/database';
@@ -20,7 +21,7 @@ export function EmployeeManagement({ actorId, query, onEdit, onChanged }: {
   const target = db.users.find(u => u.id === targetId);
   return <View style={{ gap: 12 }}>
     <Field label="Lọc ca làm" value={shift} onChange={setShift} />
-    {saved && <Text selectable accessibilityRole="alert" style={ui.muted}>{saved}</Text>}
+    <Toast message={saved} onClose={()=>setSaved('')}/>
     <Table key={JSON.stringify([query, shift])} headings={['Nhân viên', 'Email', 'Số điện thoại', 'Ca / vị trí', 'Quyền / tài khoản', 'Thao tác']}
       rows={rows.map(employee => [employee.fullName, employee.email, employee.phone,
         `${employee.shift || 'Chưa phân ca'} · ${employee.position}`,
@@ -32,7 +33,7 @@ export function EmployeeManagement({ actorId, query, onEdit, onChanged }: {
     {!!target && <Sheet title={target.isActive ? 'Khóa tài khoản nhân viên?' : 'Mở khóa tài khoản nhân viên?'} onClose={() => { if (!working) setTargetId(''); }}>
       <Text selectable style={ui.text}>{target.username} · {target.email}</Text>
       <Text style={ui.muted}>{target.isActive ? 'Tài khoản không đăng nhập được và phiên hiện có sẽ mất hiệu lực. Hồ sơ và hóa đơn được giữ nguyên.' : 'Tài khoản được phép đăng nhập lại. Phiên đã thu hồi không tự khôi phục.'}</Text>
-      {!!error && <Text selectable accessibilityRole="alert" style={ui.error}>{error}</Text>}
+      <Toast message={error} onClose={()=>setError('')}/>
       <Button primary disabled={working} onPress={() => {
         if (working) return;
         setWorking(true); setError('');

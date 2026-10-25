@@ -5,6 +5,7 @@ import { User } from "../contracts/domain";
 // ASVS V14.3: không lưu mật khẩu nhập vào dưới dạng rõ; không dùng dữ liệu thật.
 const credentialsKey = "elan_demo_credentials";
 const sessionKey = "elan_demo_session";
+export const STAFF_SESSION_MS = 8 * 60 * 60 * 1000;
 function read<T>(key: string, fallback: T): T {
   try {
     return JSON.parse(localStorage.getItem(key) || "null") ?? fallback;
@@ -61,15 +62,19 @@ export async function loginDemo(
     ? (await digest(password, record.salt)) === record.digest
     : ["USR001", "USR002"].includes(user.id) && password === "Demo@123";
   if (!valid) throw new Error("Email hoặc mật khẩu chưa đúng.");
-  sessionStorage.setItem(sessionKey, JSON.stringify({ id: user.id, version: localStorage.getItem(`elan_password_version_${user.id}`) }));
+  const issuedAt = Date.now();
+  sessionStorage.setItem(sessionKey, JSON.stringify({ id: user.id, version: localStorage.getItem(`elan_password_version_${user.id}`), issuedAt, expiresAt: issuedAt + STAFF_SESSION_MS }));
   return user;
 }
 export function getDemoSession() {
   try {
     const stored = sessionStorage.getItem(sessionKey);
     if (!stored) return null;
-    let session: { id: string; version: string | null };
-    try { session = JSON.parse(stored); } catch { session = { id: stored, version: null }; }
+    const session = JSON.parse(stored);
+    if (!Number.isFinite(session.issuedAt) || !Number.isFinite(session.expiresAt) || session.issuedAt > Date.now() ||
+      session.expiresAt !== session.issuedAt + STAFF_SESSION_MS || Date.now() >= session.expiresAt) {
+      sessionStorage.removeItem(sessionKey); return null;
+    }
     if (session.version !== localStorage.getItem(`elan_password_version_${session.id}`)) return null;
     return db.users.find((u) => u.id === session.id && u.isActive) || null;
   } catch {

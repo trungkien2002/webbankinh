@@ -4,6 +4,7 @@ import { revenueReport, revenueRows, vnDay } from '../services/kien-service';
 import { downloadWorkbook } from '../services/spreadsheet-export';
 import { Button, Choice, Table, money, ui, palette } from './ui';
 import { Toast } from './toast';
+import {DateField} from './filter-controls';
 
 export function RevenueReport({actorId}:{actorId:string}) {
   const today=vnDay(new Date().toISOString());
@@ -13,9 +14,9 @@ export function RevenueReport({actorId}:{actorId:string}) {
   try {report=revenueReport(actorId,from,to,period);} catch(e) {filterError=(e as Error).message;}
   const bars=report?.timeline||[], max=Math.max(1,...bars.map(b=>b.value));
   return <View style={{gap:20,minWidth:0}}>
-    <View style={[ui.card,{gap:12}]}><Text style={ui.h2}>Doanh thu theo thời gian</Text><View style={ui.row}>{[['Từ ngày',from,setFrom],['Đến ngày',to,setTo]].map(([label,value,set])=><View key={label as string} style={{flexGrow:1,minWidth:160}}><Text style={ui.label}>{label as string}</Text><input type="date" aria-label={label as string} value={value as string} onChange={e=>(set as (v:string)=>void)(e.target.value)} style={{width:'100%',boxSizing:'border-box',minHeight:44,padding:10,border:'1px solid #c9d2c7',borderRadius:5,background:'#fff',color:palette.ink}}/></View>)}</View>
+    <View style={[ui.card,{gap:12}]}><Text style={ui.h2}>Doanh thu theo thời gian</Text><View style={ui.row}><DateField label="Từ ngày" value={from} onChange={setFrom}/><DateField label="Đến ngày" value={to} onChange={setTo}/></View>
       <Choice label="Gộp theo" value={period} onChange={v=>setPeriod(v as typeof period)} options={[{label:'Ngày',value:'day'},{label:'Tháng',value:'month'},{label:'Năm',value:'year'}]}/>
-      <Text style={ui.muted}>Chỉ đơn đã thanh toán; lọc theo ngày tạo hóa đơn, giờ Việt Nam, cùng cơ sở với danh sách hóa đơn. Giảm giá phân bổ theo tiền hàng; công mài thuộc Combo. Đơn cũ dùng loại sản phẩm hiện có nếu chưa có snapshot.</Text>
+      <Text style={ui.muted}>Chỉ đơn đã thanh toán; lọc theo ngày tạo hóa đơn, giờ Việt Nam, cùng cơ sở với danh sách hóa đơn. Giảm giá phân bổ theo tiền hàng; công mài thuộc Combo, thuế trình bày riêng. Tổng thu gồm thuế. Đơn cũ dùng loại sản phẩm hiện có nếu chưa có snapshot.</Text>
       {!!filterError&&<Text accessibilityRole="alert" style={ui.error}>{filterError}</Text>}
       <Text style={ui.h2}>{report ? money(report.total) : '—'} · {report?.invoices.length||0} hóa đơn</Text>
       <Button disabled={!report} onPress={()=>{try {downloadWorkbook(revenueRows(report!),`doanh-thu-${from}-${to}.xlsx`);}catch(e){setError((e as Error).message);}}}>Xuất Excel</Button>

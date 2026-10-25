@@ -40,7 +40,7 @@ describe('Kiên completion',()=>{
     addDraftCombo('USR001',draft.id,frame.id,lens.id,2);
     let current=db.invoices.find(i=>i.id===draft.id)!;
     expect(current.assemblyFee).toBe(100000);expect(current.subtotal).toBe(2*(frame.price+lens.price));
-    expect(current.totalAmount).toBe(current.subtotal+100000);
+    expect(current.totalAmount).toBe((current.subtotal+100000)*1.1);
     const originalPrice=current.items[0].unitPrice;db.products[0].price+=123;
     saveDraftItems('USR001',draft.id,itemQuantities(current.items));current=db.invoices.find(i=>i.id===draft.id)!;
     expect(current.items[0].unitPrice).toBe(originalPrice);
@@ -68,7 +68,7 @@ describe('Kiên completion',()=>{
   it('unlinks incomplete combos after reducing a component without leaving assembly fees',()=>{
     const draft=setup();addDraftCombo('USR001',draft.id,'PRD001','PRD003',1);
     saveDraftItems('USR001',draft.id,{PRD001:1});const current=db.invoices.find(i=>i.id===draft.id)!;
-    expect(current.combos).toHaveLength(0);expect(current.assemblyFee).toBe(0);expect(current.totalAmount).toBe(db.products[0].price);
+    expect(current.combos).toHaveLength(0);expect(current.assemblyFee).toBe(0);expect(current.totalAmount).toBe(Math.round(db.products[0].price*1.1));
   });
   it('discounts products only and requires cash to cover the separate assembly fee',()=>{
     const draft=setup();addDraftCombo('USR001',draft.id,'PRD001','PRD003',1);
@@ -76,12 +76,12 @@ describe('Kiên completion',()=>{
       startDate:'2000-01-01',endDate:'2099-12-31',isActive:true,usageCount:0,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
     let current=db.invoices.find(i=>i.id===draft.id)!;
     saveDraftItems('USR001',draft.id,itemQuantities(current.items),'TEST10');current=db.invoices.find(i=>i.id===draft.id)!;
-    expect(current.discountAmount).toBe(current.subtotal*.1);expect(current.totalAmount).toBe(current.subtotal*.9+50000);
+    expect(current.discountAmount).toBe(current.subtotal*.1);expect(current.totalAmount).toBe((current.subtotal*.9+50000)*1.1);
     expect(()=>payInvoice('USR001',draft.id,{method:'cash',cashReceived:current.totalAmount-1,idempotencyKey:'short'})).toThrow(/tiền mặt/);
     expect(db.products[0].stock).toBe(12);
     payInvoice('USR001',draft.id,{method:'cash',cashReceived:current.totalAmount,idempotencyKey:'full'});
     const day=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Ho_Chi_Minh'});
-    const report=revenueReport('USR001',day,day);expect(report.groups.Combo).toBe(current.totalAmount);
+    const report=revenueReport('USR001',day,day);expect(report.groups.Combo).toBe(current.totalAmount-(current.taxAmount||0));
   });
   it('rolls back combo writes when local storage cannot persist',()=>{
     const draft=setup();const before=JSON.stringify(db.invoices);

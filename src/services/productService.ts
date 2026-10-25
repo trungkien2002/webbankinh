@@ -3,7 +3,7 @@
 
 import { Product, ProductType } from '../contracts/domain';
 import { db } from './database';
-import { validateBarcode } from './kien-service';
+import { validateBarcode } from './barcode-validation';
 
 export interface CreateProductInput {
   actorId?: string;

@@ -4,8 +4,10 @@
 import { Invoice, InvoiceItem, InvoicePaymentStatus, InvoiceProductionStatus } from '../contracts/domain';
 import { db } from './database';
 import { isCalendarDay, vietnamDayStart } from './vietnam-date';
+import {invoiceTotals} from './invoice-totals';
 
 export interface CreatePendingInvoiceInput {
+  taxRate?: number;
   items: InvoiceItem[];
   customerId?: string;
   customerName?: string;
@@ -47,7 +49,8 @@ export class InvoiceService {
 
     const subtotal = input.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
     const discountAmount = input.voucherDiscountSnapshot || 0;
-    const totalAmount = Math.max(0, subtotal - discountAmount);
+    let totals;
+    try {totals=invoiceTotals(subtotal,discountAmount,0,input.taxRate||0);}catch(e){return {success:false,error:(e as Error).message};}
 
     const invoiceCount = db.invoices.length + 1;
     const invoiceCode = 'HD' + String(invoiceCount).padStart(4, '0');
@@ -65,7 +68,7 @@ export class InvoiceService {
       discountAmount,
       voucherCode: input.voucherCode,
       voucherDiscountSnapshot: discountAmount,
-      totalAmount,
+      ...totals,
       paymentMethod: 'cash',
       paymentStatus: 'pending', // Treo đơn
       productionStatus: 'cutting_lens', // Chờ mài lắp kính

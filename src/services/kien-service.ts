@@ -1,3 +1,5 @@
+import {validateBarcode} from './barcode-validation';
+export {validateBarcode} from './barcode-validation';
 import { Invoice, ProductType } from '../contracts/domain';
 import { db } from './database';
 import { foldText } from './hoan-service';
@@ -8,19 +10,12 @@ export function staff(actorId: string, admin = false) {
   return user;
 }
 export type CategorySort = 'name-asc' | 'name-desc' | 'newest';
-export async function listCategories(actorId: string, query: string, sort: CategorySort) {
+export async function listCategories(actorId: string, query: string, sort: CategorySort, material = '') {
   staff(actorId);
   const q = foldText(query);
-  return db.categories.filter(c => !c.isDeleted && foldText(`${c.name} ${c.description}`).includes(q))
+  return db.categories.filter(c => !c.isDeleted && foldText(`${c.name} ${c.description} ${c.material||''}`).includes(q) && (!material||foldText(c.material||'').includes(foldText(material))))
     .sort((a, b) => sort === 'newest' ? b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id)
       : (sort === 'name-desc' ? -1 : 1) * a.name.localeCompare(b.name, 'vi') || a.id.localeCompare(b.id));
-}
-export function validateBarcode(value: string, productId?: string) {
-  const barcode = value.trim();
-  if (barcode && !/^[A-Za-z0-9_-]{1,48}$/.test(barcode)) throw new Error('Mã vạch gồm 1–48 chữ, số, dấu _ hoặc -.');
-  if (barcode && db.products.some(p => !p.isDeleted && p.id !== productId && p.barcode?.toUpperCase() === barcode.toUpperCase()))
-    throw new Error('Mã vạch đã gắn với sản phẩm khác.');
-  return barcode;
 }
 export function assignBarcode(actorId: string, productId: string, value: string) {
   staff(actorId, true);
@@ -39,13 +34,13 @@ export function validDay(value: string) {
     throw new Error('Ngày không hợp lệ.');
   return value;
 }
-export type RevenueGroup = ProductType | 'Combo' | 'Khác';
+export type RevenueGroup = ProductType | 'Combo' | 'Khác' | 'Thuế';
 export function revenueReport(actorId: string, from: string, to: string, period: 'day' | 'month' | 'year' = 'day') {
   staff(actorId, true);
   if (validDay(from) > validDay(to)) throw new Error('Từ ngày phải trước hoặc bằng đến ngày.');
   if (!['day','month','year'].includes(period)) throw new Error('Kỳ báo cáo không hợp lệ.');
   const invoices = db.invoices.filter(i => i.paymentStatus === 'paid' && vnDay(i.createdAt) >= from && vnDay(i.createdAt) <= to);
-  const groups: Record<RevenueGroup, number> = { 'Gọng kính':0, 'Tròng kính':0, 'Kính râm':0, 'Phụ kiện':0, Combo:0, 'Khác':0 };
+  const groups: Record<RevenueGroup, number> = { 'Gọng kính':0, 'Tròng kính':0, 'Kính râm':0, 'Phụ kiện':0, Combo:0, 'Khác':0, 'Thuế':0 };
   const timeline = new Map<string, number>();
   for (const inv of invoices) {
     const key = vnDay(inv.createdAt).slice(0, period === 'day' ? 10 : period === 'month' ? 7 : 4);
@@ -59,11 +54,11 @@ export function revenueReport(actorId: string, from: string, to: string, period:
     let allocated = 0;
     const entries = [...buckets.entries()];
     entries.forEach(([type, amount], index) => {
-      const net = index === entries.length - 1 ? inv.totalAmount - (inv.assemblyFee || 0) - allocated : base ? Math.round((inv.totalAmount - (inv.assemblyFee || 0)) * amount / base) : 0;
+      const net = index === entries.length - 1 ? inv.totalAmount - (inv.assemblyFee || 0) - (inv.taxAmount || 0) - allocated : base ? Math.round((inv.totalAmount - (inv.assemblyFee || 0) - (inv.taxAmount || 0)) * amount / base) : 0;
       groups[type] += net; allocated += net;
     });
     if (!entries.length) groups['Khác'] += inv.totalAmount;
-    else groups.Combo += inv.assemblyFee || 0;
+    else {groups.Combo += inv.assemblyFee || 0;groups['Thuế'] += inv.taxAmount || 0;}
   }
   return { from, to, period, invoices, groups, total: invoices.reduce((s,i) => s+i.totalAmount,0),
     timeline: [...timeline].sort(([a],[b]) => a.localeCompare(b)).map(([label,value]) => ({label,value})) };

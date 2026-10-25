@@ -1,3 +1,5 @@
+import {DateField} from './filter-controls';
+import {vietnamDay} from '../services/vietnam-date';
 import { Toast } from './toast';
 import React, { useState } from "react";
 import { Text } from "react-native";
@@ -29,9 +31,8 @@ export function VoucherForm({
     value: "Mức giảm",
     minimum: "Giá trị đơn tối thiểu",
     maximum: "Giảm tối đa (không bắt buộc)",
-    start: "Ngày bắt đầu (YYYY-MM-DD)",
-    end: "Ngày kết thúc (YYYY-MM-DD)",
   };
+  if (vietnamDay()>voucher.endDate) return <Text style={ui.muted}>Voucher đã hết hạn ngày {voucher.endDate}. Không thể sửa nội dung; có thể bật/tắt từ danh sách.</Text>;
   return (
     <>
       <Choice
@@ -53,6 +54,8 @@ export function VoucherForm({
           onChange={(v) => setForm({ ...form, [key]: v })}
         />
       ))}
+      <DateField label="Ngày bắt đầu voucher" value={form.start} onChange={v=>setForm({...form,start:v})}/>
+      <DateField label="Ngày kết thúc voucher" value={form.end} onChange={v=>setForm({...form,end:v})}/>
       <Toast message={error} onClose={() => setError('')} />
       <Button
         primary

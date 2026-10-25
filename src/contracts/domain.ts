@@ -138,6 +138,8 @@ export interface InvoiceItem {
 }
 
 export interface Invoice {
+  taxRate?: number;
+  taxAmount?: number;
   combos?: InvoiceCombo[];
   assemblyFee?: number;
   id: string;
@@ -175,5 +177,5 @@ export interface InvoiceCombo {
 }
 
 export type InvoicePaymentMethod = 'cash' | 'transfer' | 'card' | 'qr';
-export interface PaymentRecord { id: string; invoiceId: string; idempotencyKey: string; method: InvoicePaymentMethod; amount: number; createdAt: string; }
+export interface PaymentRecord { reference?: string; id: string; invoiceId: string; idempotencyKey: string; method: InvoicePaymentMethod; amount: number; createdAt: string; }
 export interface StockMovement { id: string; productId: string; quantity: number; reason: 'import'; importKey: string; lot?: string; createdAt: string; }
