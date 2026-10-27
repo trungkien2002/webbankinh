@@ -21,6 +21,7 @@ import { MemberDashboard } from "../components/memberDashboard";
 import { CustomerEdit } from '../components/customer-edit';
 import { AppointmentReminders, CustomerAppointments, CustomerAppointmentSummary } from '../components/customer-appointments';
 import { preparePresentationData } from "../services/presentationData";
+import { prepareReportSamples } from "../services/reportSamples";
 import { customerSession } from "../services/customerAccount";
 import { ImageUpload } from "../components/imageUpload";
 import { Storefront } from "../components/storefront";
@@ -105,6 +106,7 @@ export function WebApp() {
   useState(() => {
     prepareDemoCatalog();
     preparePresentationData();
+    prepareReportSamples();
     return true;
   });
   const [page, setPage] = useState<"store" | "login" | "admin">(() => window.location.hash.startsWith("#/admin") ? getDemoSession() ? "admin" : "login" : "store");

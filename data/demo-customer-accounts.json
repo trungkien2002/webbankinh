@@ -1,0 +1,86 @@
+[
+  {
+    "alias": "kh01",
+    "email": "minhanh@example.com",
+    "customerId": "CUS001",
+    "salt": "6a2d06bce00fa75bcc30b6597c63d93e",
+    "hash": "44966eda2b70e6eabadd859ce60bc35ee57bc21eac538ab2a71abba22a0c40c7"
+  },
+  {
+    "alias": "kh02",
+    "email": "baongoc@example.com",
+    "customerId": "CUS002",
+    "salt": "912beff80753699d41548e003aaa8226",
+    "hash": "5bcdc88d148063e4888a5b48bac407ee29f77544e6da92f9b8c4616b41a61d84"
+  },
+  {
+    "alias": "kh03",
+    "email": "minhkhang@example.com",
+    "customerId": "SAMPLE_CUS_3",
+    "salt": "da14533d8c205b19f3f2f81ebba98ab4",
+    "hash": "f1a6dff74cf5529fa3b5c40df48856d96036e06baa3f87d53398429d2588b901"
+  },
+  {
+    "alias": "kh04",
+    "email": "halinh@example.com",
+    "customerId": "SAMPLE_CUS_4",
+    "salt": "62c4ec3feb9d35910cd43f23faa11dc2",
+    "hash": "2de94adcbb9f70fd508f4394368e3ef233e81e4c2b2ccdb63d1401acc863297c"
+  },
+  {
+    "alias": "kh05",
+    "email": "giahuy@example.com",
+    "customerId": "SAMPLE_CUS_5",
+    "salt": "22a265811d46593786a6d371ece50f31",
+    "hash": "c815da8c91e64e91c77448401de3a66b9f1be8d82586b23c37b287db49353243"
+  },
+  {
+    "alias": "kh06",
+    "email": "ngocmai@example.com",
+    "customerId": "SAMPLE_CUS_6",
+    "salt": "6fcab517ca0e07af03a5a4747af2b590",
+    "hash": "a5dfd8c5b778d6201117b4471741bff785d4a4bfcc8b500d8f04f5b8bc47bf0f"
+  },
+  {
+    "alias": "kh07",
+    "email": "tuananh@example.com",
+    "customerId": "SAMPLE_CUS_7",
+    "salt": "ebd34eec37b1291dab7b65b6d8a01c6a",
+    "hash": "76124cf883c90cb3a90e1d31ed4d866bb5749ff64b994aba996e61476276a82c"
+  },
+  {
+    "alias": "kh08",
+    "email": "thutrang@example.com",
+    "customerId": "SAMPLE_CUS_8",
+    "salt": "7f9d6a9172fc343df231ef38b3ac7efd",
+    "hash": "761d8c4cd9566cb7185d811926ed6d6921d7957105e2de4222d66ecb07ea5683"
+  },
+  {
+    "alias": "kh09",
+    "email": "hainam@example.com",
+    "customerId": "SAMPLE_CUS_9",
+    "salt": "44f1c362656ab30827f590cda94650b1",
+    "hash": "3f34920baafdbad2426912b5bd64808ef89045a0936ef968bf64767f7db542cb"
+  },
+  {
+    "alias": "kh10",
+    "email": "phuongthao@example.com",
+    "customerId": "SAMPLE_CUS_10",
+    "salt": "069d2061be8ebd240d85960791856c7b",
+    "hash": "d6470c8c1b10a5e2c1ecb729d3caeba1836f4e76193952917d653e5f27761ffd"
+  },
+  {
+    "alias": "kh11",
+    "email": "quangminh@example.com",
+    "customerId": "SAMPLE_CUS_11",
+    "salt": "722fd49c017886f0e1ffed716b199f88",
+    "hash": "6eb7af6dc8afa5b9fda0234da0cc410f8baa650374b07675416e643d11dec2ce"
+  },
+  {
+    "alias": "kh12",
+    "email": "khanhlinh@example.com",
+    "customerId": "SAMPLE_CUS_12",
+    "salt": "a48b1d21870a22a3afb7b2c9adf15b07",
+    "hash": "d7801043509828de8300d9aa68822daca955c768fc1027afa8cb6f078c0c766b"
+  }
+]

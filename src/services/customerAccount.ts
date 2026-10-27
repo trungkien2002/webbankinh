@@ -1,9 +1,23 @@
 import { db } from './database';
 import { Customer } from '../contracts/domain';
+import demoAccounts from '../../data/demo-customer-accounts.json';
 type Account = { customerId: string; salt: string; hash: string };
 const key = 'elan_customer_accounts';
 const sessionKey = 'elan_customer_session';
-function accounts(): Record<string, Account> { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } }
+function accounts(): Record<string, Account> {
+  let stored: Record<string, Account> = {};
+  try { stored = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch { /* Giữ khả năng đăng nhập bộ dữ liệu mẫu. */ }
+  const defaults: Record<string, Account> = {};
+  // ASVS 6.2: dùng hash PBKDF2 của tài khoản hư cấu; không ghi đè mật khẩu người dùng đã đặt.
+  for (const account of demoAccounts) {
+    const customer = db.customers.find(c => c.id === account.customerId && c.email?.toLowerCase() === account.email);
+    if (!customer) continue;
+    const record = stored[account.email] || { customerId: customer.id, salt: account.salt, hash: account.hash };
+    defaults[account.alias] = record;
+    defaults[account.email] = record;
+  }
+  return { ...defaults, ...stored };
+}
 async function hash(password: string, salt: string) {
   const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations: 600000, hash: 'SHA-256' }, material, 256);
@@ -30,7 +44,7 @@ export async function customerLogin(email: string, password: string) {
   const seed = db.customers.find(c => c.id === 'CUS001');
   if (seed && !localStorage.getItem('elan_customer_alias_v2')) {
     const salt = crypto.randomUUID();
-    for (const [identifier, record] of Object.entries(records)) if (record.customerId === seed.id) delete records[identifier];
+    for (const [identifier, record] of Object.entries(records)) if (record.customerId === seed.id && !demoAccounts.some(account=>account.alias===identifier)) delete records[identifier];
     const fixture = { customerId: seed.id, salt, hash: await hash('a', salt) };
     records.a = fixture;
     if (seed.email) records[seed.email.toLowerCase()] = fixture;
