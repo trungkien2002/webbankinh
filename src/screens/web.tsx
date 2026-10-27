@@ -269,6 +269,10 @@ export function WebApp() {
       setNotice("Vui lòng nhập tên và số điện thoại từ 9 đến 11 chữ số.");
       return;
     }
+    if (page === 'store' && !form.address?.trim()) {
+      setNotice('Vui lòng nhập địa chỉ nhận hàng.');
+      return;
+    }
     const client = page === "store" ? customerSession() : db.customers.find((c) => c.id === customer);
     const employee = db.employees.find((e) => e.userId === user?.id);
     const result = invoiceService.holdPendingInvoice({
@@ -277,11 +281,11 @@ export function WebApp() {
       customerName: page === "store" ? form.fullName : client?.fullName,
       customerPhone: page === "store" ? form.phone : client?.phone,
       taxRate:DEMO_TAX_RATE,
-      employeeId: employee?.id || "ONLINE",
-      employeeName: employee?.fullName || "Cửa hàng trực tuyến",
+      employeeId: page === 'store' ? 'ONLINE' : employee?.id || 'ONLINE',
+      employeeName: page === 'store' ? 'Cửa hàng trực tuyến' : employee?.fullName || 'Cửa hàng trực tuyến',
       voucherCode: voucher || undefined,
       voucherDiscountSnapshot: discountAmount,
-      notes: form.address ? `Giao đến: ${form.address}` : undefined,
+      deliveryAddress: page === 'store' ? form.address : undefined,
     });
     if (!result.success || !result.data) {
       setNotice(result.error || "Không thể lưu đơn.");

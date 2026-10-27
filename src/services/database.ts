@@ -309,8 +309,7 @@ class Database {
     return this.data.invoices;
   }
   public setInvoices(invoices: Invoice[]) {
-    this.data.invoices = invoices;
-    this.save();
+    this.transaction(data => { data.invoices = invoices; });
   }
 }
 

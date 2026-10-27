@@ -85,6 +85,7 @@ describe('Sprint 4 - HD004: Lọc hóa đơn theo thời gian, trạng thái', (
   });
 
   it('Thành công: Lọc theo trạng thái mài lắp tròng kính (cutting_lens vs completed)', () => {
+    db.transaction(data => { data.invoices[0].productionStatus = 'cutting_lens'; });
     const cuttingList = invoiceService.filterInvoices({ productionStatus: 'cutting_lens' });
     expect(cuttingList.length).toBe(1);
     expect(cuttingList[0].productionStatus).toBe('cutting_lens');

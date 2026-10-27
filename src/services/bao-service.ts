@@ -5,6 +5,7 @@ import { db } from './database';
 import { voucherService } from './voucherService';
 import { ASSEMBLY_UNIT_FEE, buildDraftItems, itemQuantities } from './combo';
 import { invoiceTotals, DEMO_TAX_RATE } from './invoice-totals';
+import { nextInvoiceCode } from './invoice-code';
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -40,11 +41,8 @@ export function createDraft(userId: string): Invoice {
   actor(userId);
   const employee = db.employees.find(e => e.userId === userId);
   if (!employee) throw new Error('Tài khoản chưa có hồ sơ nhân viên để tạo đơn.');
-  const codes = new Set(db.invoices.map(i => i.invoiceCode));
-  let number = db.invoices.length + 1;
-  while (codes.has(`HD${String(number).padStart(4, '0')}`)) number++;
   const invoice: Invoice = {
-    createdBy:saleActor(userId), id: id('INV'), invoiceCode: `HD${String(number).padStart(4, '0')}`,
+    createdBy:saleActor(userId), id: id('INV'), invoiceCode: nextInvoiceCode(db.invoices),
     employeeId: employee.id, employeeName: employee.fullName, items: [],
     subtotal: 0, discountAmount: 0, totalAmount: 0, taxRate:DEMO_TAX_RATE,taxAmount:0,
     paymentMethod: 'cash', paymentStatus: 'draft', productionStatus: 'none',

@@ -138,7 +138,8 @@ describe('KHANH.md - HD004: Lọc hóa đơn khoảng ngày & tiến độ mài 
     invoiceService.holdPendingInvoice({
       employeeId: 'EMP001', employeeName: 'Tester', customerName: 'Khách Test',
       items: [{ id: '1', productId: 'PRD001', productName: 'Gọng', sku: 'GK001', unitPrice: 100000, quantity: 1, lineTotal: 100000 }],
-    }); // new pending invoice has productionStatus: 'cutting_lens'
+    });
+    db.transaction(data => { data.invoices[0].productionStatus = 'cutting_lens'; });
 
     const cutting = invoiceService.filterInvoices({ productionStatus: 'cutting_lens' });
     expect(cutting.length).toBeGreaterThan(0);

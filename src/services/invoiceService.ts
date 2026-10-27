@@ -5,6 +5,7 @@ import { Invoice, InvoiceItem, InvoicePaymentStatus, InvoiceProductionStatus } f
 import { db } from './database';
 import { isCalendarDay, vietnamDayStart } from './vietnam-date';
 import {invoiceTotals} from './invoice-totals';
+import { nextInvoiceCode } from './invoice-code';
 
 export interface CreatePendingInvoiceInput {
   taxRate?: number;
@@ -17,6 +18,7 @@ export interface CreatePendingInvoiceInput {
   voucherCode?: string;
   voucherDiscountSnapshot?: number;
   notes?: string;
+  deliveryAddress?: string;
 }
 
 export interface FilterInvoiceInput {
@@ -36,10 +38,19 @@ export interface ServiceResult<T> {
 export class InvoiceService {
   /**
    * BH002: Treo hoá đơn (Lưu đơn chờ thanh toán / chờ mài lắp tròng)
-   * - Chuyển đơn sang trạng thái paymentStatus: 'pending', productionStatus: 'cutting_lens'
+   * - Lưu đơn chờ; chỉ bắt đầu gia công sau khi nhân viên lưu số đo và xử lý đơn.
    * - Giúp nhân viên tiếp tục phục vụ khách hàng khác mà không mất giỏ hàng đang đo
    */
   public holdPendingInvoice(input: CreatePendingInvoiceInput): ServiceResult<Invoice> {
+    const customerName = input.customerName?.trim();
+    const customerPhone = input.customerPhone?.trim();
+    const deliveryAddress = input.deliveryAddress?.trim();
+    if (input.employeeId === 'ONLINE') {
+      if (!customerName || !/^\d{9,11}$/.test(customerPhone || ''))
+        return { success: false, error: 'Vui lòng nhập tên và số điện thoại từ 9 đến 11 chữ số.' };
+      if (!deliveryAddress)
+        return { success: false, error: 'Vui lòng nhập địa chỉ nhận hàng.' };
+    }
     if (!input.items || input.items.length === 0) {
       return { success: false, error: 'Không thể treo hóa đơn khi giỏ hàng chưa có sản phẩm.' };
     }
@@ -52,15 +63,14 @@ export class InvoiceService {
     let totals;
     try {totals=invoiceTotals(subtotal,discountAmount,0,input.taxRate||0);}catch(e){return {success:false,error:(e as Error).message};}
 
-    const invoiceCount = db.invoices.length + 1;
-    const invoiceCode = 'HD' + String(invoiceCount).padStart(4, '0');
+    const invoiceCode = nextInvoiceCode(db.invoices);
 
     const newInvoice: Invoice = {
       id: 'INV' + String(Date.now()) + '_' + Math.random().toString(36).substr(2, 5),
       invoiceCode,
       customerId: input.customerId,
-      customerName: input.customerName || 'Khách vãng lai',
-      customerPhone: input.customerPhone,
+      customerName: customerName || 'Khách vãng lai',
+      customerPhone,
       employeeId: input.employeeId,
       employeeName: input.employeeName,
       items: input.items,
@@ -71,13 +81,17 @@ export class InvoiceService {
       ...totals,
       paymentMethod: 'cash',
       paymentStatus: 'pending', // Treo đơn
-      productionStatus: 'cutting_lens', // Chờ mài lắp kính
-      notes: input.notes,
+      productionStatus: 'none',
+      notes: deliveryAddress ? `Giao đến: ${deliveryAddress}` : input.notes,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    db.setInvoices([...db.invoices, newInvoice]);
+    try {
+      db.transaction(data => { data.invoices.push(newInvoice); });
+    } catch {
+      return { success: false, error: 'Không thể lưu đơn hàng trên trình duyệt. Vui lòng kiểm tra dung lượng lưu trữ và thử lại.' };
+    }
 
     return {
       success: true,
@@ -125,8 +139,14 @@ export class InvoiceService {
 
     const newInvoices = [...invoices];
     newInvoices[idx] = updated;
-    db.setProducts(db.products.map(product => ({ ...product, stock: product.stock - (quantities.get(product.id) || 0) })));
-    db.setInvoices(newInvoices);
+    try {
+      db.transaction(data => {
+        data.products = data.products.map(product => ({ ...product, stock: product.stock - (quantities.get(product.id) || 0) }));
+        data.invoices = newInvoices;
+      });
+    } catch {
+      return { success: false, error: 'Không thể lưu thanh toán. Đơn hàng và tồn kho được giữ nguyên, vui lòng thử lại.' };
+    }
 
     return { success: true, data: updated };
   }

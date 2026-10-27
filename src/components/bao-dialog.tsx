@@ -30,6 +30,7 @@ export function InvoiceContent({ invoice }: { invoice: Invoice }) {
     <Text selectable style={ui.h2}>{invoice.invoiceCode}</Text>
     <Text style={ui.label}>{paymentLabels[invoice.paymentStatus]} · {productionLabels[invoice.productionStatus]||invoice.productionStatus}</Text>
     <SaleDetails invoice={invoice} internal/>
+    {!!invoice.notes && <Text selectable style={ui.text}>{invoice.notes}</Text>}
     <Table headings={['Sản phẩm', 'SL', 'Đơn giá', 'Thành tiền']} rows={invoice.items.map(item => [item.productName + ' / ' + item.sku + (item.comboId ? ' · Combo' : ''), String(item.quantity), money(item.unitPrice), money(item.lineTotal)])} />
     <Text selectable style={[ui.text, { lineHeight: 30, padding: 18, backgroundColor: "#f0f4ee", borderRadius: 10 }]}>Tiền hàng: {money(invoice.subtotal)}{'\n'}Công mài: {money(invoice.assemblyFee || 0)}{'\n'}Giảm giá: {money(invoice.discountAmount)} · {invoice.voucherCode || '—'}{'\n'}Thuế {invoice.taxRate||0}%: {money(invoice.taxAmount||0)}{'\n'}Tổng: {money(invoice.totalAmount)}{'\n'}Thanh toán: {({cash:'Tiền mặt',transfer:'Chuyển khoản',qr:'QR mô phỏng',card:'Thẻ mô phỏng'})[invoice.paymentMethod]} · {displayDate(invoice.paidAt)}</Text>
     {prescription ? <><Text style={ui.h2}>Thông số đo mắt</Text><Table headings={['Mắt', 'SPH', 'CYL', 'AXIS']} rows={[

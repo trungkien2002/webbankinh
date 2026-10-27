@@ -154,7 +154,7 @@ describe('Sprint 3 - BH002: Danh sách hoá đơn chờ thanh toán (Treo hoá �
 
     expect(result.success).toBe(true);
     expect(result.data?.paymentStatus).toBe('pending');
-    expect(result.data?.productionStatus).toBe('cutting_lens');
+    expect(result.data?.productionStatus).toBe('none');
     expect(result.data?.totalAmount).toBe(765000);
 
     // Xuất hiện trong danh sách treo
