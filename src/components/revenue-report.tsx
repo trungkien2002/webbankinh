@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect,useState} from 'react';
 import {Text,View} from 'react-native';
 import {revenueReport,revenueRows,vnDay} from '../services/kien-service';
 import {saleTrace,saleTime,paymentNames} from '../services/sale-trace';
@@ -11,8 +11,12 @@ export function RevenueReport({actorId,onDetail}:{actorId:string;onDetail:(id:st
  const today=vnDay(new Date().toISOString());
  const [from,setFrom]=useState(today.slice(0,7)+'-01'),[to,setTo]=useState(today),[period,setPeriod]=useState<'day'|'month'|'year'>('day'),[query,setQuery]=useState(''),[error,setError]=useState('');
  const search=useDebounced(query);let report:ReturnType<typeof revenueReport>|undefined,filterError='';
+ const [timelinePage,setTimelinePage]=useState(1);
+ useEffect(()=>setTimelinePage(1),[from,to,period,search]);
  try{report=revenueReport(actorId,from,to,period,search);}catch(e){filterError=(e as Error).message;}
  const bars=report?.timeline||[],max=Math.max(1,...bars.map(b=>b.value)),tax=report?.invoices.reduce((s,i)=>s+(i.taxAmount||0),0)||0,net=(report?.total||0)-tax;
+ const timelinePages=Math.max(1,Math.ceil(bars.length/7)),currentTimelinePage=Math.min(timelinePage,timelinePages),timelineStart=(currentTimelinePage-1)*7;
+ const visibleBars=bars.slice(timelineStart,timelineStart+7);
  const groups=Object.entries(report?.groups||{}).filter(([label,value])=>label!=='Thuế'&&value>0);
  const periodLabel=(label:string)=>period==='day'?label.split('-').reverse().join('/'):period==='month'?label.split('-').reverse().join('/'):label;
  return <View style={{gap:22,minWidth:0}}>
@@ -25,7 +29,20 @@ export function RevenueReport({actorId,onDetail}:{actorId:string;onDetail:(id:st
   </View>
   {report&&<>
    <View style={[ui.row,{alignItems:'stretch'}]}>{[['Doanh thu chưa thuế',money(net),'Đã trừ giảm giá, gồm công mài'],['Thuế đã thu',money(tax),'Tách riêng khỏi doanh thu nhóm'],['Tổng tiền đã thu',money(report.total),`${report.invoices.length} hóa đơn đã thanh toán`]].map(([label,value,hint])=><View key={label} style={[ui.card,{flexGrow:1,flexBasis:230,gap:8}]}><Text style={ui.muted}>{label}</Text><Text style={[ui.h2,{color:palette.green}]}>{value}</Text><Text style={ui.muted}>{hint}</Text></View>)}</View>
-   <View style={[ui.card,{gap:16}]}><Text style={ui.h2}>Tiền thu theo thời gian</Text><Text style={ui.muted}>Gồm thuế · {period==='day'?'Từng ngày':period==='month'?'Từng tháng':'Từng năm'} tạo hóa đơn</Text>{!bars.length&&<Text style={ui.muted}>Không có giao dịch phù hợp.</Text>}{bars.map(b=><View key={b.label} style={{gap:7}}><View style={[ui.row,{justifyContent:'space-between'}]}><Text style={ui.text}>{periodLabel(b.label)}</Text><Text style={ui.label}>{money(b.value)}</Text></View><View style={{height:12,backgroundColor:'#edf2e9',borderRadius:5,overflow:'hidden'}}><View style={{width:`${b.value/max*100}%`,height:12,backgroundColor:palette.green}}/></View></View>)}</View>
+   <View testID="revenue-timeline" style={[ui.card,{gap:16}]}>
+    <Text style={ui.h2}>Tiền thu theo thời gian</Text>
+    <Text style={ui.muted}>Gồm thuế · {period==='day'?'Từng ngày':period==='month'?'Từng tháng':'Từng năm'} tạo hóa đơn · Tối đa 7 mốc mỗi trang</Text>
+    {!bars.length&&<Text style={ui.muted}>Không có giao dịch phù hợp.</Text>}
+    {visibleBars.map(b=><View testID="revenue-timeline-row" key={b.label} style={{gap:7}}><View style={[ui.row,{justifyContent:'space-between'}]}><Text style={ui.text}>{periodLabel(b.label)}</Text><Text style={ui.label}>{money(b.value)}</Text></View><View style={{height:12,backgroundColor:'#edf2e9',borderRadius:5,overflow:'hidden'}}><View style={{width:`${b.value/max*100}%`,height:12,backgroundColor:palette.green}}/></View></View>)}
+    {!!bars.length&&<View style={{gap:10,paddingTop:12,borderTopWidth:1,borderTopColor:palette.line}}>
+     <Text accessibilityLiveRegion="polite" style={ui.muted}>Mốc {timelineStart+1}–{timelineStart+visibleBars.length} / {bars.length} · {periodLabel(visibleBars[0].label)} – {periodLabel(visibleBars[visibleBars.length-1].label)}</Text>
+     {timelinePages>1&&<View style={[ui.row,{justifyContent:'space-between'}]}>
+      <Button disabled={currentTimelinePage===1} onPress={()=>setTimelinePage(currentTimelinePage-1)}>← Trước</Button>
+      <Text style={ui.label}>Trang {currentTimelinePage}/{timelinePages}</Text>
+      <Button disabled={currentTimelinePage===timelinePages} onPress={()=>setTimelinePage(currentTimelinePage+1)}>Sau →</Button>
+     </View>}
+    </View>}
+   </View>
    <View style={[ui.card,{gap:15}]}><Text style={ui.h2}>Phân bổ doanh thu chưa thuế</Text><Text style={ui.muted}>Chỉ hiển thị nhóm có doanh thu. Giảm giá phân bổ theo tiền hàng; công mài thuộc Combo.</Text>{!groups.length&&<Text style={ui.muted}>Chưa có doanh thu theo nhóm.</Text>}{groups.map(([label,value])=><View key={label} style={{gap:7}}><View style={[ui.row,{justifyContent:'space-between'}]}><Text style={ui.text}>{label}</Text><Text style={ui.label}>{money(value)} · {net?Math.round(value/net*100):0}%</Text></View><View style={{height:10,backgroundColor:'#edf2e9',borderRadius:5,overflow:'hidden'}}><View style={{height:10,width:`${net?value/net*100:0}%`,backgroundColor:palette.green}}/></View></View>)}</View>
    <View style={{gap:12}}><Text style={ui.h2}>Nhật ký bán hàng · {report.invoices.length} hóa đơn</Text><Text style={ui.muted}>Người lập đơn và người thu tiền có thể khác nhau. Đơn cũ thiếu dữ liệu được ghi rõ, không suy đoán tài khoản.</Text>
     <Table key={`${from}|${to}|${search}`} headings={['Hóa đơn / thời gian','Người bán / tài khoản','Khách hàng','Thanh toán','Chi tiết']} rows={report.invoices.map(i=>{const t=saleTrace(i);return [<View style={{gap:7}}>{cell(i.invoiceCode,t.channel)}<Text style={ui.muted}>Tạo: {saleTime(i.createdAt)}</Text><Text style={ui.muted}>Thu tiền: {saleTime(i.paidAt)}</Text></View>,<View style={{gap:12}}>{cell(`Lập: ${t.seller}`,t.account)}{cell(`Thu: ${t.collector}`,t.collectorAccount)}</View>,cell(t.customer,t.phone),cell(money(i.totalAmount),`${paymentNames[i.paymentMethod]} · Thuế ${money(i.taxAmount||0)}`),<Button onPress={()=>onDetail(i.id)}>Chi tiết</Button>];})}/>
